@@ -1,0 +1,6 @@
+{
+  "name": "Pet's Family — Clínica Veterinária 24h & Pet Shop",
+  "description": "Pet's Family: Clínica Veterinária 24 Horas, Pet Shop, Banho & Tosa e Entrega rápida na região de Grajaú e Apurá, São Paulo/SP.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
