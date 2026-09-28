@@ -542,8 +542,12 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
               : undefined,
           }));
 
-        // FIRESTORE É A ÚNICA FONTE DE VERDADE ABSOLUTA (Sem mesclagem ou fallback)
-        setProducts(parsedProducts);
+        // Se Firestore tiver produtos, utiliza a fonte remota; caso vazio, mantém INITIAL_PRODUCTS
+        if (parsedProducts && parsedProducts.length > 0) {
+          setProducts(parsedProducts);
+        } else {
+          setProducts(INITIAL_PRODUCTS);
+        }
 
         // Trace detalhado de cada documento recebido do Firestore
         parsedProducts.forEach((p) => {
