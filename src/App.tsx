@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ArrowDown } from 'lucide-react';
 import { StoreProvider, useStore } from './context/StoreContext';
 import { Header } from './components/Header';
@@ -21,7 +21,48 @@ import { ImageZoomModal } from './components/ImageZoomModal';
 import { Footer } from './components/Footer';
 
 const SmartScrollButton: React.FC = () => {
-  const [isNearBottom, setIsNearBottom] = useState(false);
+  const [isGoingUp, setIsGoingUp] = useState(false);
+  const animationFrameRef = useRef<number | null>(null);
+
+  const getSectionStops = (): number[] => {
+    const scrollY = window.scrollY || document.documentElement.scrollTop;
+    const maxScroll = Math.max(
+      0,
+      document.documentElement.scrollHeight - window.innerHeight
+    );
+    if (maxScroll <= 0) return [0];
+
+    const headerEl = document.getElementById('main-header');
+    const headerOffset = (headerEl ? headerEl.offsetHeight : 80) + 12;
+
+    const elements = Array.from(
+      document.querySelectorAll('main > *, footer')
+    ) as HTMLElement[];
+
+    const stops: number[] = [0];
+
+    for (const el of elements) {
+      const rect = el.getBoundingClientRect();
+      if (rect.height < 40) continue;
+
+      const rawTop = rect.top + scrollY - headerOffset;
+      const stopY = Math.max(0, Math.min(maxScroll, Math.round(rawTop)));
+
+      if (stopY - stops[stops.length - 1] >= 160) {
+        stops.push(stopY);
+      }
+    }
+
+    if (maxScroll - stops[stops.length - 1] >= 100) {
+      stops.push(maxScroll);
+    } else if (stops.length > 1) {
+      stops[stops.length - 1] = maxScroll;
+    } else {
+      stops.push(maxScroll);
+    }
+
+    return stops;
+  };
 
   useEffect(() => {
     const evaluateScroll = () => {
@@ -31,20 +72,11 @@ const SmartScrollButton: React.FC = () => {
         document.documentElement.scrollHeight - window.innerHeight
       );
 
-      if (maxScroll <= 0) {
-        setIsNearBottom(false);
-        return;
+      if (maxScroll <= 0 || scrollY <= 24) {
+        setIsGoingUp(false);
+      } else if (scrollY >= maxScroll - 40) {
+        setIsGoingUp(true);
       }
-
-      setIsNearBottom((prev) => {
-        if (!prev) {
-          // Switch to UP arrow when approaching or reaching the bottom
-          return scrollY >= maxScroll - 260 || scrollY / maxScroll >= 0.78;
-        } else {
-          // Hysteresis: keep UP arrow until user scrolls meaningfully back up
-          return !(scrollY < maxScroll - 380 && scrollY / maxScroll < 0.68);
-        }
-      });
     };
 
     evaluateScroll();
@@ -56,21 +88,28 @@ const SmartScrollButton: React.FC = () => {
     };
   }, []);
 
-  const handleToggleScroll = () => {
+  const animateScrollTo = (targetY: number, onComplete?: () => void) => {
+    if (animationFrameRef.current !== null) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+
     const startY = window.scrollY || document.documentElement.scrollTop;
-    const targetY = isNearBottom
-      ? 0
-      : Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
     const distance = targetY - startY;
 
-    if (Math.abs(distance) < 4) return;
+    if (Math.abs(distance) < 4) {
+      onComplete?.();
+      return;
+    }
 
-    const duration = 2000; // 2.0 segundos
+    const duration = 850;
     const startTime = performance.now();
-    let animationFrameId: number;
 
     const cancelOnUserInput = () => {
-      cancelAnimationFrame(animationFrameId);
+      if (animationFrameRef.current !== null) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
       cleanupListeners();
     };
 
@@ -93,27 +132,57 @@ const SmartScrollButton: React.FC = () => {
       window.scrollTo(0, startY + distance * eased);
 
       if (progress < 1) {
-        animationFrameId = requestAnimationFrame(step);
+        animationFrameRef.current = requestAnimationFrame(step);
       } else {
+        animationFrameRef.current = null;
         cleanupListeners();
+        onComplete?.();
       }
     };
 
-    animationFrameId = requestAnimationFrame(step);
+    animationFrameRef.current = requestAnimationFrame(step);
+  };
+
+  const handleToggleScroll = () => {
+    const scrollY = window.scrollY || document.documentElement.scrollTop;
+    const maxScroll = Math.max(
+      0,
+      document.documentElement.scrollHeight - window.innerHeight
+    );
+    const stops = getSectionStops();
+
+    if (!isGoingUp) {
+      const nextStop =
+        stops.find((s) => s > scrollY + 24) ?? maxScroll;
+      animateScrollTo(nextStop, () => {
+        if (nextStop >= maxScroll - 40) {
+          setIsGoingUp(true);
+        }
+      });
+    } else {
+      const prevStops = stops.filter((s) => s < scrollY - 24);
+      const prevStop =
+        prevStops.length > 0 ? prevStops[prevStops.length - 1] : 0;
+      animateScrollTo(prevStop, () => {
+        if (prevStop <= 24) {
+          setIsGoingUp(false);
+        }
+      });
+    }
   };
 
   return (
     <button
       type="button"
       onClick={handleToggleScroll}
-      title={isNearBottom ? 'Voltar ao topo' : 'Ir para o final'}
-      aria-label={isNearBottom ? 'Voltar ao topo' : 'Ir para o final'}
+      title={isGoingUp ? 'Seção anterior' : 'Próxima seção'}
+      aria-label={isGoingUp ? 'Voltar para a seção anterior' : 'Ir para a próxima seção'}
       id="smart-scroll-btn"
       className="fixed bottom-24 right-6 z-40 w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-slate-900/90 hover:bg-slate-900 text-amber-400 border border-amber-400/30 shadow-lg hover:shadow-xl backdrop-blur-md flex items-center justify-center transition-all duration-300 active:scale-95 cursor-pointer"
     >
       <ArrowDown
         className={`w-5 h-5 transition-transform duration-300 ease-in-out ${
-          isNearBottom ? 'rotate-180' : 'rotate-0'
+          isGoingUp ? 'rotate-180' : 'rotate-0'
         }`}
       />
     </button>
