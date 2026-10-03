@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { ArrowDown } from 'lucide-react';
 import { StoreProvider, useStore } from './context/StoreContext';
 import { Header } from './components/Header';
 import { HeroBanner } from './components/HeroBanner';
@@ -18,6 +19,106 @@ import { ToastContainer } from './components/ToastContainer';
 import { FloatingWhatsApp } from './components/FloatingWhatsApp';
 import { ImageZoomModal } from './components/ImageZoomModal';
 import { Footer } from './components/Footer';
+
+const SmartScrollButton: React.FC = () => {
+  const [isNearBottom, setIsNearBottom] = useState(false);
+
+  useEffect(() => {
+    const evaluateScroll = () => {
+      const scrollY = window.scrollY || document.documentElement.scrollTop;
+      const maxScroll = Math.max(
+        0,
+        document.documentElement.scrollHeight - window.innerHeight
+      );
+
+      if (maxScroll <= 0) {
+        setIsNearBottom(false);
+        return;
+      }
+
+      setIsNearBottom((prev) => {
+        if (!prev) {
+          // Switch to UP arrow when approaching or reaching the bottom
+          return scrollY >= maxScroll - 260 || scrollY / maxScroll >= 0.78;
+        } else {
+          // Hysteresis: keep UP arrow until user scrolls meaningfully back up
+          return !(scrollY < maxScroll - 380 && scrollY / maxScroll < 0.68);
+        }
+      });
+    };
+
+    evaluateScroll();
+    window.addEventListener('scroll', evaluateScroll, { passive: true });
+    window.addEventListener('resize', evaluateScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', evaluateScroll);
+      window.removeEventListener('resize', evaluateScroll);
+    };
+  }, []);
+
+  const handleToggleScroll = () => {
+    const startY = window.scrollY || document.documentElement.scrollTop;
+    const targetY = isNearBottom
+      ? 0
+      : Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+    const distance = targetY - startY;
+
+    if (Math.abs(distance) < 4) return;
+
+    const duration = 2000; // 2.0 segundos
+    const startTime = performance.now();
+    let animationFrameId: number;
+
+    const cancelOnUserInput = () => {
+      cancelAnimationFrame(animationFrameId);
+      cleanupListeners();
+    };
+
+    const cleanupListeners = () => {
+      window.removeEventListener('wheel', cancelOnUserInput);
+      window.removeEventListener('touchstart', cancelOnUserInput);
+    };
+
+    window.addEventListener('wheel', cancelOnUserInput, { passive: true });
+    window.addEventListener('touchstart', cancelOnUserInput, { passive: true });
+
+    const easeInOutCubic = (t: number) =>
+      t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+    const step = (currentTime: number) => {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = easeInOutCubic(progress);
+
+      window.scrollTo(0, startY + distance * eased);
+
+      if (progress < 1) {
+        animationFrameId = requestAnimationFrame(step);
+      } else {
+        cleanupListeners();
+      }
+    };
+
+    animationFrameId = requestAnimationFrame(step);
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleToggleScroll}
+      title={isNearBottom ? 'Voltar ao topo' : 'Ir para o final'}
+      aria-label={isNearBottom ? 'Voltar ao topo' : 'Ir para o final'}
+      id="smart-scroll-btn"
+      className="fixed bottom-24 right-6 z-40 w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-slate-900/90 hover:bg-slate-900 text-amber-400 border border-amber-400/30 shadow-lg hover:shadow-xl backdrop-blur-md flex items-center justify-center transition-all duration-300 active:scale-95 cursor-pointer"
+    >
+      <ArrowDown
+        className={`w-5 h-5 transition-transform duration-300 ease-in-out ${
+          isNearBottom ? 'rotate-180' : 'rotate-0'
+        }`}
+      />
+    </button>
+  );
+};
 
 const StoreFront: React.FC = () => {
   const { offersProducts = [], bestSellerProducts = [], activeProducts = [], setFilters } = useStore();
@@ -112,6 +213,7 @@ const StoreFront: React.FC = () => {
       <OrdersHistoryModal />
       <AdminPanelModal />
       <ToastContainer />
+      <SmartScrollButton />
       <FloatingWhatsApp />
       <ImageZoomModal />
     </div>
