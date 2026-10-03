@@ -28,7 +28,6 @@ import {
   Check,
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
-import { PRIMARY_ADMIN_EMAIL } from '../services/authService';
 import { AdminProductsTab } from './admin/AdminProductsTab';
 import { AdminServicesTab } from './admin/AdminServicesTab';
 import { AdminCategoriesTab } from './admin/AdminCategoriesTab';
@@ -63,7 +62,6 @@ export const AdminPanelModal: React.FC = () => {
     isAdminOpen,
     setIsAdminOpen,
     isAdminAuthenticated,
-    loginAdmin,
     loginAdminWithEmail,
     loginAdminWithGoogle,
     logoutAdmin,
@@ -75,6 +73,7 @@ export const AdminPanelModal: React.FC = () => {
   } = useStore();
 
   const [activeTab, setActiveTab] = useState<AdminTab>('products');
+  const [emailInput, setEmailInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
@@ -87,6 +86,7 @@ export const AdminPanelModal: React.FC = () => {
 
   const handleClose = () => {
     setIsAdminOpen(false);
+    setEmailInput('');
     setPasswordInput('');
     setLoginError(null);
     setDomainErrorInfo(null);
@@ -101,31 +101,26 @@ export const AdminPanelModal: React.FC = () => {
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const cleanEmail = emailInput.trim();
     const cleanPass = passwordInput.trim();
-    if (!cleanPass) return;
+    if (!cleanEmail || !cleanPass) {
+      setLoginError('Por favor, informe seu e-mail e senha.');
+      return;
+    }
     setIsSubmitting(true);
     setLoginError(null);
     setDomainErrorInfo(null);
 
-    // 1. Try master password first for instant, guaranteed access
-    const masterSuccess = await loginAdmin(cleanPass);
-    if (masterSuccess) {
-      setPasswordInput('');
-      setLoginError(null);
-      setIsSubmitting(false);
-      return;
-    }
-
-    // 2. Try Firebase Auth with admin credentials
-    const res = await loginAdminWithEmail(PRIMARY_ADMIN_EMAIL, cleanPass);
+    const res = await loginAdminWithEmail(cleanEmail, cleanPass);
     if (res.success) {
+      setEmailInput('');
       setPasswordInput('');
       setLoginError(null);
       setIsSubmitting(false);
       return;
     }
 
-    setLoginError(res.error || 'Senha incorreta. Verifique os dados e tente novamente.');
+    setLoginError(res.error || 'E-mail ou senha incorretos.');
     setIsSubmitting(false);
   };
 
@@ -148,6 +143,7 @@ export const AdminPanelModal: React.FC = () => {
 
   const handleLogout = async () => {
     await logoutAdmin();
+    setEmailInput('');
     setPasswordInput('');
     setLoginError(null);
   };
@@ -255,18 +251,33 @@ export const AdminPanelModal: React.FC = () => {
               <div>
                 <h3 className="text-xl font-black text-slate-900">Acesso Administrativo</h3>
                 <p className="text-xs text-slate-500 mt-1">
-                  Digite sua senha autorizada para gerenciar o catálogo e dados em tempo real.
+                  Digite seu e-mail e senha autorizados para gerenciar o catálogo e dados em tempo real.
                 </p>
-                <div className="mt-2.5 inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 text-[#0B2B6D] rounded-full text-xs font-medium border border-blue-100">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>Conta Administrador: <strong>{PRIMARY_ADMIN_EMAIL}</strong></span>
-                </div>
               </div>
 
               <form onSubmit={handleLoginSubmit} className="space-y-4 text-left">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                    Senha de Acesso
+                    E-mail
+                  </label>
+                  <input
+                    type="email"
+                    value={emailInput}
+                    onChange={(e) => {
+                      setEmailInput(e.target.value);
+                      setLoginError(null);
+                      setDomainErrorInfo(null);
+                    }}
+                    placeholder="Digite seu e-mail"
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 focus:border-[#0B2B6D] rounded-xl text-sm outline-none focus:bg-white transition-all font-sans"
+                    autoFocus
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Senha
                   </label>
                   <div className="relative">
                     <input
@@ -277,9 +288,8 @@ export const AdminPanelModal: React.FC = () => {
                         setLoginError(null);
                         setDomainErrorInfo(null);
                       }}
-                      placeholder="••••••••••••"
+                      placeholder="Digite sua senha"
                       className="w-full pl-4 pr-10 py-2.5 bg-slate-50 border border-slate-200 focus:border-[#0B2B6D] rounded-xl text-sm outline-none focus:bg-white transition-all font-mono"
-                      autoFocus
                       required
                     />
                     <button
@@ -301,7 +311,7 @@ export const AdminPanelModal: React.FC = () => {
 
                 <button
                   type="submit"
-                  disabled={isSubmitting || !passwordInput}
+                  disabled={isSubmitting || !emailInput || !passwordInput}
                   className="w-full py-3 bg-[#0B2B6D] hover:bg-[#081F50] text-white rounded-xl font-bold text-sm transition-all shadow-md hover:shadow-lg disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
                 >
                   {isSubmitting ? (
@@ -342,7 +352,7 @@ export const AdminPanelModal: React.FC = () => {
                     </button>
                   </div>
                   <p className="text-[10px] text-amber-700">
-                    💡 <strong>Acesso Direto:</strong> Você pode acessar o painel imediatamente digitando sua senha no campo acima e clicando em <strong>"Entrar no Painel"</strong>.
+                    💡 <strong>Acesso com E-mail e Senha:</strong> Você pode acessar o painel digitando seu e-mail e senha cadastrados no formulário acima e clicando em <strong>"Entrar no Painel"</strong>.
                   </p>
                 </div>
               )}

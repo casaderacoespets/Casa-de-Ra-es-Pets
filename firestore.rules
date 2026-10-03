@@ -2,24 +2,16 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Helper function to check if the user is authenticated
+    // Helper function to check if the user is authenticated with a non-anonymous account
     function isAuthenticated() {
-      return request.auth != null;
+      return request.auth != null && request.auth.token.firebase.sign_in_provider != 'anonymous';
     }
 
-    // Primary Super Admin
-    function isPrimaryAdmin() {
-      return isAuthenticated() && (
-        request.auth.token.email == 'fernandes.wesley@gmail.com'
-      );
-    }
-
-    // Authorized Admin
+    // Authorized Admins: strictly limited to the two authorized administrative accounts
     function isAdmin() {
       return isAuthenticated() && (
-        request.auth.token.email == 'fernandes.wesley@gmail.com' ||
-        exists(/databases/$(database)/documents/admins/$(request.auth.token.email)) ||
-        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+        request.auth.token.email == 'casaderacoespets@gmail.com' ||
+        request.auth.token.email == 'fernandes.wesley@gmail.com'
       );
     }
 
@@ -64,6 +56,11 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    match /services/{serviceId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     match /config/{configDoc} {
       allow read: if true;
       allow write: if isAdmin();
@@ -75,11 +72,9 @@ service cloud.firestore {
       allow read, update, delete: if isAdmin();
     }
 
-    // Admins List: only authorized admins can read; only primary admin can write
+    // Admins Collection: restricted strictly to the two authorized administrators
     match /admins/{adminId} {
-      allow read: if isAdmin();
-      allow write: if isPrimaryAdmin();
+      allow read, write: if isAdmin();
     }
   }
 }
-

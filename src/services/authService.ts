@@ -1,68 +1,39 @@
 import {
   signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  signInAnonymously,
   signInWithPopup,
   signOut,
   onAuthStateChanged,
   User,
 } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
-import { auth, googleProvider, db } from './firebase';
+import { auth, googleProvider } from './firebase';
 
-export const PRIMARY_ADMIN_EMAIL = 'fernandes.wesley@gmail.com';
-export const ADMIN_EMAILS = [
+export const ADMIN_EMAILS: readonly string[] = [
+  'casaderacoespets@gmail.com',
   'fernandes.wesley@gmail.com',
 ];
 
 /**
  * Checks if a given Firebase user has admin privileges.
- * 1. Checks primary configured admin emails
- * 2. Checks Firestore /admins/{email} or /admins/{uid} document for dynamic admin management
- * 3. Authorizes any authenticated administrative session created through the panel
+ * Strictly verifies against authorized administrator email accounts:
+ * - casaderacoespets@gmail.com
+ * - fernandes.wesley@gmail.com
+ * Anonymous accounts and unauthorized emails are strictly denied.
  */
 export const checkIsUserAdmin = async (user: User | null): Promise<boolean> => {
   if (!user) return false;
+  if (user.isAnonymous) return false;
 
   const email = (user.email || '').toLowerCase().trim();
-  if (
-    ADMIN_EMAILS.map((e) => e.toLowerCase()).includes(email) ||
-    email === PRIMARY_ADMIN_EMAIL.toLowerCase()
-  ) {
-    return true;
-  }
+  if (!email) return false;
 
-  if (user.isAnonymous) {
-    return true;
-  }
-
-  if (!db) return true;
-
-  try {
-    // Check if user is registered in Firestore /admins collection
-    if (email) {
-      const emailDoc = await getDoc(doc(db, 'admins', email));
-      if (emailDoc.exists() && emailDoc.data()?.active !== false) {
-        return true;
-      }
-    }
-
-    const uidDoc = await getDoc(doc(db, 'admins', user.uid));
-    if (uidDoc.exists() && uidDoc.data()?.active !== false) {
-      return true;
-    }
-  } catch (err) {
-    console.warn('Verificação secundária de admin no Firestore:', err);
-  }
-
-  return true;
+  return ADMIN_EMAILS.map((e) => e.toLowerCase()).includes(email);
 };
 
 /**
  * Sign in with Email and Password using Firebase Auth.
- * If the user does not exist yet (first-time setup in a fresh project),
- * attempts to create the user account automatically.
- * If email/password provider is disabled in Firebase console, falls back to signInAnonymously.
+ * Uses the exact email provided by the user.
+ * Strictly checks that the authenticated user is one of the authorized administrators.
+ * If unauthorized, immediately signs out and denies access.
  */
 export const signInWithEmail = async (email: string, pass: string): Promise<User> => {
   if (!auth) {
@@ -70,65 +41,74 @@ export const signInWithEmail = async (email: string, pass: string): Promise<User
   }
 
   const cleanEmail = email.trim().toLowerCase();
+  const cleanPass = pass.trim();
+
+  if (!cleanEmail || !cleanPass) {
+    throw new Error('Informe o e-mail e a senha de acesso.');
+  }
 
   try {
-    const credential = await signInWithEmailAndPassword(auth, cleanEmail, pass);
-    console.log('[FIREBASE AUTH LOGIN SUCCESS]', {
-      uid: credential.user.uid,
-      email: credential.user.email,
-    });
-    return credential.user;
-  } catch (err: any) {
-    console.warn('[FIREBASE AUTH LOGIN ATTEMPT]', err?.code);
+    const credential = await signInWithEmailAndPassword(auth, cleanEmail, cleanPass);
+    const isAdmin = await checkIsUserAdmin(credential.user);
 
-    // If account was never initialized in a new Firebase project and explicitly returns user-not-found:
-    if (
-      ADMIN_EMAILS.map((e) => e.toLowerCase()).includes(cleanEmail) &&
-      err.code === 'auth/user-not-found'
-    ) {
-      try {
-        console.log('[FIREBASE AUTH] Criando conta de administrador inicial...', cleanEmail);
-        const newCred = await createUserWithEmailAndPassword(auth, cleanEmail, pass);
-        console.log('[FIREBASE AUTH REGISTRATION SUCCESS]', {
-          uid: newCred.user.uid,
-          email: newCred.user.email,
-        });
-        return newCred.user;
-      } catch (createErr: any) {
-        if (createErr?.code === 'auth/email-already-in-use') {
-          const passErr: any = new Error('Senha incorreta para esta conta de administrador.');
-          passErr.code = 'auth/wrong-password';
-          throw passErr;
-        }
-        throw createErr;
-      }
+    if (!isAdmin) {
+      await signOut(auth);
+      const notAuthErr: any = new Error(
+        'Acesso não autorizado. Esta conta não possui privilégios de administrador.'
+      );
+      notAuthErr.code = 'auth/unauthorized-admin';
+      throw notAuthErr;
     }
 
-    // Standardize invalid-credential or wrong-password to avoid attempting duplicate account creation
-    if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password') {
-      const passErr: any = new Error('Senha incorreta. Verifique os dados e tente novamente.');
-      passErr.code = 'auth/wrong-password';
+    return credential.user;
+  } catch (err: any) {
+    if (err.code === 'auth/unauthorized-admin') {
+      throw err;
+    }
+
+    if (
+      err.code === 'auth/invalid-credential' ||
+      err.code === 'auth/wrong-password' ||
+      err.code === 'auth/user-not-found'
+    ) {
+      const passErr: any = new Error('E-mail ou senha incorretos. Verifique os dados e tente novamente.');
+      passErr.code = 'auth/invalid-credential';
       throw passErr;
+    }
+
+    if (err.code === 'auth/invalid-email') {
+      const emailErr: any = new Error('Formato de e-mail inválido.');
+      emailErr.code = 'auth/invalid-email';
+      throw emailErr;
     }
 
     throw err;
   }
 };
 
-
 /**
- * Sign in with Google using Firebase Auth
+ * Sign in with Google using Firebase Auth.
+ * Strictly validates that the authenticated Google account belongs to one of the authorized admins.
+ * If unauthorized, immediately signs out and denies access.
  */
 export const signInWithGoogle = async (): Promise<User> => {
   if (!auth || !googleProvider) {
     throw new Error('Autenticação com Google requer credenciais ativas do Firebase.');
   }
+
   try {
     const result = await signInWithPopup(auth, googleProvider);
-    console.log('[FIREBASE AUTH GOOGLE SUCCESS]', {
-      uid: result.user.uid,
-      email: result.user.email,
-    });
+    const isAdmin = await checkIsUserAdmin(result.user);
+
+    if (!isAdmin) {
+      await signOut(auth);
+      const notAuthErr: any = new Error(
+        'Acesso não autorizado. A conta Google informada não possui privilégios de administrador.'
+      );
+      notAuthErr.code = 'auth/unauthorized-admin';
+      throw notAuthErr;
+    }
+
     return result.user;
   } catch (err: any) {
     if (err?.code === 'auth/unauthorized-domain') {
@@ -139,6 +119,7 @@ export const signInWithGoogle = async (): Promise<User> => {
       domainErr.domain = window.location.hostname;
       throw domainErr;
     }
+
     throw err;
   }
 };
@@ -149,7 +130,6 @@ export const signInWithGoogle = async (): Promise<User> => {
 export const logoutFirebase = async (): Promise<void> => {
   if (auth) {
     await signOut(auth);
-    console.log('[FIREBASE AUTH LOGOUT SUCCESS]');
   }
 };
 
@@ -167,20 +147,13 @@ export const subscribeToAdminAuth = (
   return onAuthStateChanged(auth, async (user) => {
     if (user) {
       const isAdmin = await checkIsUserAdmin(user);
-      console.log('[FIREBASE AUTH]', {
-        uid: user.uid,
-        email: user.email,
-        isAdmin: isAdmin,
-      });
-      callback(user, isAdmin);
+      if (isAdmin) {
+        callback(user, true);
+      } else {
+        callback(null, false);
+      }
     } else {
-      console.log('[FIREBASE AUTH]', {
-        uid: null,
-        email: null,
-        isAdmin: false,
-      });
       callback(null, false);
     }
   });
 };
-

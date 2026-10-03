@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode, useRef } from 'react';
-import { User, signInAnonymously } from 'firebase/auth';
+import { User } from 'firebase/auth';
 import {
   Product,
   CartItem,
@@ -77,7 +77,6 @@ import {
   signInWithEmail,
   signInWithGoogle,
   logoutFirebase,
-  PRIMARY_ADMIN_EMAIL,
 } from '../services/authService';
 import { isFirebaseConfigured, auth } from '../services/firebase';
 
@@ -137,7 +136,6 @@ interface StoreContextType {
   isAdminAuthenticated: boolean;
   adminUser: User | null;
   adminEmail: string;
-  loginAdmin: (passwordOrEmail?: string) => Promise<boolean>;
   loginAdminWithEmail: (email: string, pass: string) => Promise<{ success: boolean; error?: string }>;
   loginAdminWithGoogle: () => Promise<{ success: boolean; error?: string }>;
   logoutAdmin: () => Promise<void>;
@@ -383,15 +381,13 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   // =========================================================================
   const [adminUser, setAdminUser] = useState<User | null>(null);
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(false);
-  const [adminEmail, setAdminEmail] = useState<string>(PRIMARY_ADMIN_EMAIL);
+  const [adminEmail, setAdminEmail] = useState<string>('');
 
   useEffect(() => {
     const unsubscribe = subscribeToAdminAuth((user, isAdmin) => {
       setAdminUser(user);
       setIsAdminAuthenticated(isAdmin);
-      if (user?.email) {
-        setAdminEmail(user.email);
-      }
+      setAdminEmail(user?.email || '');
     });
     return () => unsubscribe();
   }, []);
@@ -401,20 +397,24 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       const user = await signInWithEmail(email, pass);
       setIsAdminAuthenticated(true);
       setAdminUser(user);
-      setAdminEmail(user.email || PRIMARY_ADMIN_EMAIL);
+      setAdminEmail(user.email || '');
       showToast('Acesso administrativo autorizado com sucesso!', 'success');
       return { success: true };
     } catch (err: any) {
-      let errorMsg = 'Senha incorreta ou acesso não autorizado.';
-      if (
+      let errorMsg = 'E-mail ou senha incorretos.';
+      if (err.code === 'auth/unauthorized-admin' || err.message?.includes('não possui')) {
+        errorMsg = 'Acesso não autorizado. Esta conta não possui privilégios de administrador.';
+      } else if (
         err.code === 'auth/user-not-found' ||
         err.code === 'auth/invalid-credential' ||
         err.code === 'auth/wrong-password' ||
-        err.code === 'auth/email-already-in-use'
+        err.code === 'auth/invalid-email'
       ) {
-        errorMsg = 'Senha incorreta. Verifique os dados e tente novamente.';
+        errorMsg = 'E-mail ou senha incorretos. Verifique os dados e tente novamente.';
       } else if (err.code === 'auth/too-many-requests') {
         errorMsg = 'Muitas tentativas consecutivas. Aguarde alguns instantes.';
+      } else if (err.message) {
+        errorMsg = err.message;
       }
       console.warn('[AUTH LOGIN ATTEMPT]', errorMsg, err?.code);
       return { success: false, error: errorMsg, code: err?.code };
@@ -426,10 +426,17 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       const user = await signInWithGoogle();
       setIsAdminAuthenticated(true);
       setAdminUser(user);
-      setAdminEmail(user.email || PRIMARY_ADMIN_EMAIL);
-      showToast(`Login realizado com sucesso: ${user.email}`, 'success');
+      setAdminEmail(user.email || '');
+      showToast('Login realizado com sucesso!', 'success');
       return { success: true };
     } catch (err: any) {
+      if (err?.code === 'auth/unauthorized-admin' || err?.message?.includes('não possui')) {
+        return {
+          success: false,
+          code: 'auth/unauthorized-admin',
+          error: 'Acesso não autorizado. A conta Google informada não possui privilégios de administrador.',
+        };
+      }
       if (err?.code === 'auth/unauthorized-domain') {
         console.warn('[AUTH GOOGLE] Domínio não autorizado no Firebase Console:', window.location.hostname);
         return {
@@ -451,28 +458,6 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
   };
 
-  // Backwards compatible loginAdmin method
-  const loginAdmin = async (passwordOrEmail?: string): Promise<boolean> => {
-    // If the legacy master password is provided, authenticate directly as admin
-    const ADMIN_PASSWORD = 'Pets*AH-Ud!!J5>ZNorJ29v';
-    const isMaster = passwordOrEmail === ADMIN_PASSWORD || passwordOrEmail === 'admin123';
-    if (isMaster) {
-      if (auth && !auth.currentUser) {
-        try {
-          const anonCred = await signInAnonymously(auth);
-          setAdminUser(anonCred.user);
-        } catch {
-          // Anonymous auth optional; administrative session is granted
-        }
-      }
-      setIsAdminAuthenticated(true);
-      setAdminEmail(PRIMARY_ADMIN_EMAIL);
-      showToast('Acesso administrativo autorizado!', 'success');
-      return true;
-    }
-    return false;
-  };
-
   const logoutAdmin = async () => {
     try {
       await logoutFirebase();
@@ -481,6 +466,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
     setIsAdminAuthenticated(false);
     setAdminUser(null);
+    setAdminEmail('');
     showToast('Sessão encerrada com sucesso.', 'info');
   };
 
@@ -1758,7 +1744,6 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         isAdminAuthenticated,
         adminUser,
         adminEmail,
-        loginAdmin,
         loginAdminWithEmail,
         loginAdminWithGoogle,
         logoutAdmin,
