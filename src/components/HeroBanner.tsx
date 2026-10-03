@@ -88,7 +88,7 @@ export const HeroBanner: React.FC = () => {
               }}
               className="w-full h-full object-cover object-center transform scale-105 transition-transform duration-1000"
             />
-            <div className="absolute inset-0 bg-gradient-to-r from-[#F4D35E] via-[#F4D35E]/35 to-transparent lg:block hidden" />
+            <div className="absolute inset-0 bg-gradient-to-r from-[#F8E08A] via-[#F8E08A]/25 to-transparent lg:block hidden" />
             <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent lg:hidden block" />
           </div>
 
