@@ -24,8 +24,6 @@ import {
   RefreshCw,
   AlertCircle,
   Stethoscope,
-  Copy,
-  Check,
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { AdminProductsTab } from './admin/AdminProductsTab';
@@ -63,7 +61,6 @@ export const AdminPanelModal: React.FC = () => {
     setIsAdminOpen,
     isAdminAuthenticated,
     loginAdminWithEmail,
-    loginAdminWithGoogle,
     logoutAdmin,
     settings,
     orders,
@@ -77,8 +74,6 @@ export const AdminPanelModal: React.FC = () => {
   const [passwordInput, setPasswordInput] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
-  const [domainErrorInfo, setDomainErrorInfo] = useState<string | null>(null);
-  const [copiedDomain, setCopiedDomain] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
@@ -89,7 +84,6 @@ export const AdminPanelModal: React.FC = () => {
     setEmailInput('');
     setPasswordInput('');
     setLoginError(null);
-    setDomainErrorInfo(null);
     if (
       window.location.pathname === '/admin' ||
       window.location.pathname.startsWith('/admin/') ||
@@ -109,7 +103,6 @@ export const AdminPanelModal: React.FC = () => {
     }
     setIsSubmitting(true);
     setLoginError(null);
-    setDomainErrorInfo(null);
 
     const res = await loginAdminWithEmail(cleanEmail, cleanPass);
     if (res.success) {
@@ -121,23 +114,6 @@ export const AdminPanelModal: React.FC = () => {
     }
 
     setLoginError(res.error || 'E-mail ou senha incorretos.');
-    setIsSubmitting(false);
-  };
-
-  const handleGoogleLogin = async () => {
-    setIsSubmitting(true);
-    setLoginError(null);
-    setDomainErrorInfo(null);
-    const res = await loginAdminWithGoogle();
-    if (!res.success) {
-      if (res.code === 'auth/unauthorized-domain') {
-        setDomainErrorInfo(res.domain || window.location.hostname);
-      } else if (res.code === 'auth/popup-closed-by-user') {
-        setLoginError('A janela de autenticação foi fechada.');
-      } else {
-        setLoginError(res.error || 'Não foi possível autenticar com Google.');
-      }
-    }
     setIsSubmitting(false);
   };
 
@@ -266,7 +242,6 @@ export const AdminPanelModal: React.FC = () => {
                     onChange={(e) => {
                       setEmailInput(e.target.value);
                       setLoginError(null);
-                      setDomainErrorInfo(null);
                     }}
                     placeholder="Digite seu e-mail"
                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 focus:border-[#0B2B6D] rounded-xl text-sm outline-none focus:bg-white transition-all font-sans"
@@ -286,7 +261,6 @@ export const AdminPanelModal: React.FC = () => {
                       onChange={(e) => {
                         setPasswordInput(e.target.value);
                         setLoginError(null);
-                        setDomainErrorInfo(null);
                       }}
                       placeholder="Digite sua senha"
                       className="w-full pl-4 pr-10 py-2.5 bg-slate-50 border border-slate-200 focus:border-[#0B2B6D] rounded-xl text-sm outline-none focus:bg-white transition-all font-mono"
@@ -325,71 +299,9 @@ export const AdminPanelModal: React.FC = () => {
                 </button>
               </form>
 
-              {domainErrorInfo && (
-                <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl text-xs text-amber-950 space-y-2.5 text-left">
-                  <div className="flex items-center gap-2 font-bold text-amber-900">
-                    <AlertCircle className="w-4 h-4 shrink-0 text-amber-600" />
-                    <span>Domínio não autorizado para Login Google</span>
-                  </div>
-                  <p className="text-[11px] text-amber-800 leading-relaxed">
-                    O Google OAuth exige que o domínio do ambiente de testes esteja cadastrado no Firebase Console (<strong>Authentication &gt; Configurações &gt; Domínios autorizados</strong>).
-                  </p>
-                  <div className="flex items-center gap-2 bg-white p-2 rounded-xl border border-amber-200">
-                    <code className="text-[11px] font-mono text-slate-800 break-all flex-1 select-all">
-                      {domainErrorInfo}
-                    </code>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        navigator.clipboard.writeText(domainErrorInfo);
-                        setCopiedDomain(true);
-                        setTimeout(() => setCopiedDomain(false), 2000);
-                      }}
-                      className="px-2.5 py-1 bg-[#0B2B6D] hover:bg-[#081F50] text-white rounded-lg font-bold text-[10px] shrink-0 transition-all cursor-pointer flex items-center gap-1"
-                    >
-                      {copiedDomain ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                      <span>{copiedDomain ? 'Copiado!' : 'Copiar'}</span>
-                    </button>
-                  </div>
-                  <p className="text-[10px] text-amber-700">
-                    💡 <strong>Acesso com E-mail e Senha:</strong> Você pode acessar o painel digitando seu e-mail e senha cadastrados no formulário acima e clicando em <strong>"Entrar no Painel"</strong>.
-                  </p>
-                </div>
-              )}
-
-              <div className="relative flex items-center justify-center">
-                <div className="border-t border-slate-200 w-full" />
-                <span className="bg-white px-3 text-[11px] font-bold text-slate-400 uppercase tracking-wider absolute">
-                  ou
-                </span>
-              </div>
-
-              <button
-                type="button"
-                onClick={handleGoogleLogin}
-                disabled={isSubmitting}
-                className="w-full py-2.5 px-4 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl font-bold text-xs transition-all shadow-sm flex items-center justify-center gap-2.5 cursor-pointer disabled:opacity-50"
-              >
-                <svg className="w-4 h-4" viewBox="0 0 24 24">
-                  <path
-                    fill="#4285F4"
-                    d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"
-                  />
-                  <path
-                    fill="#34A853"
-                    d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"
-                  />
-                  <path
-                    fill="#FBBC05"
-                    d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.98 0 12s.45 3.82 1.25 5.42l4.03-3.15z"
-                  />
-                  <path
-                    fill="#EA4335"
-                    d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
-                  />
-                </svg>
-                <span>Entrar com Google</span>
-              </button>
+              <p className="text-[11px] text-slate-500 leading-relaxed pt-1">
+                💡 <strong>Acesso com E-mail e Senha:</strong> Você pode acessar o painel digitando seu e-mail e senha cadastrados no formulário acima e clicando em <strong>"Entrar no Painel"</strong>.
+              </p>
             </motion.div>
           </div>
         ) : (
