@@ -611,9 +611,39 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     // 4. Brands
     const unsubBrands = subscribeToBrands((cloudBrands) => {
       if (cloudBrands && cloudBrands.length > 0) {
-        const sanitizedBrands = cloudBrands.filter(
-          (b) => !b.name?.toLowerCase().includes('dogmil')
-        );
+        const defaultFeaturedMap: Record<string, { logoUrl: string; order: number }> = {
+          golden: {
+            logoUrl: 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=800&auto=format&fit=crop&q=80',
+            order: 1,
+          },
+          magnus: {
+            logoUrl: 'https://images.unsplash.com/photo-1537151608828-ea2b11777ee8?w=800&auto=format&fit=crop&q=80',
+            order: 2,
+          },
+          'fórmula natural': {
+            logoUrl: 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=800&auto=format&fit=crop&q=80',
+            order: 3,
+          },
+          'formula natural': {
+            logoUrl: 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=800&auto=format&fit=crop&q=80',
+            order: 3,
+          },
+        };
+
+        const sanitizedBrands = cloudBrands
+          .filter((b) => !b.name?.toLowerCase().includes('dogmil'))
+          .map((b) => {
+            const key = (b.name || '').trim().toLowerCase();
+            const def = defaultFeaturedMap[key];
+            if (def && b.featured === undefined) {
+              return {
+                ...b,
+                featured: true,
+                logoUrl: b.logoUrl || def.logoUrl,
+              };
+            }
+            return b;
+          });
         setBrands(sanitizedBrands);
       }
     });

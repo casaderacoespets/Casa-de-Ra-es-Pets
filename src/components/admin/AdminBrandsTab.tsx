@@ -51,6 +51,8 @@ export const AdminBrandsTab: React.FC = () => {
         id: editingBrand.id,
         name: editingBrand.name,
         logoUrl: finalLogoUrl,
+        featured: !!editingBrand.featured,
+        order: editingBrand.order || 1,
         active: editingBrand.active ?? true,
       } as PartnerBrand);
     }
@@ -60,6 +62,26 @@ export const AdminBrandsTab: React.FC = () => {
   };
 
   const sortedBrands = [...brands].sort((a, b) => (a.order || 0) - (b.order || 0));
+
+  const handleMoveOrder = (brand: PartnerBrand, direction: 'up' | 'down') => {
+    const currentIndex = sortedBrands.findIndex((b) => b.id === brand.id);
+    if (currentIndex === -1) return;
+
+    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    if (targetIndex < 0 || targetIndex >= sortedBrands.length) return;
+
+    const neighbor = sortedBrands[targetIndex];
+    const currentOrder = brand.order || currentIndex + 1;
+    const neighborOrder = neighbor.order || targetIndex + 1;
+
+    const newCurrentOrder =
+      currentOrder === neighborOrder ? targetIndex + 1 : neighborOrder;
+    const newNeighborOrder =
+      currentOrder === neighborOrder ? currentIndex + 1 : currentOrder;
+
+    updateBrand({ ...neighbor, featured: !!neighbor.featured, order: newNeighborOrder });
+    updateBrand({ ...brand, featured: !!brand.featured, order: newCurrentOrder });
+  };
 
   return (
     <div className="space-y-6">
@@ -87,7 +109,7 @@ export const AdminBrandsTab: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {sortedBrands.map((b) => (
+        {sortedBrands.map((b, idx) => (
           <div
             key={b.id}
             className={`bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between gap-3 ${
@@ -109,15 +131,39 @@ export const AdminBrandsTab: React.FC = () => {
               )}
               <div className="min-w-0">
                 <h4 className="font-bold text-slate-900 text-sm truncate">{b.name}</h4>
-                {b.featured && (
-                  <span className="inline-block text-[10px] text-amber-600 font-semibold bg-amber-50 px-1.5 py-0.5 rounded">
-                    Destaque
-                  </span>
-                )}
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className="text-[10px] text-slate-400">#{b.order || idx + 1}</span>
+                  {b.featured && (
+                    <span className="inline-block text-[10px] text-amber-600 font-semibold bg-amber-50 px-1.5 py-0.5 rounded">
+                      Destaque
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 shrink-0">
+              <div className="flex items-center bg-slate-100 p-0.5 rounded-lg">
+                <button
+                  type="button"
+                  disabled={idx === 0}
+                  onClick={() => handleMoveOrder(b, 'up')}
+                  className="p-1 text-slate-500 hover:text-slate-900 disabled:opacity-30 cursor-pointer"
+                  title="Subir posição"
+                >
+                  <ArrowUp className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  disabled={idx === sortedBrands.length - 1}
+                  onClick={() => handleMoveOrder(b, 'down')}
+                  className="p-1 text-slate-500 hover:text-slate-900 disabled:opacity-30 cursor-pointer"
+                  title="Descer posição"
+                >
+                  <ArrowDown className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
               <button
                 type="button"
                 onClick={() => toggleBrandActive(b.id)}
