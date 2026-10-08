@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   Search,
   ShoppingCart,
@@ -18,7 +18,46 @@ import {
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { BrandLogo } from './BrandLogo';
-import { PetSpecies, ProductCategory } from '../types';
+import { PetSpecies, ProductCategory, MenuItem } from '../types';
+
+const SUB_ITEMS_BY_TARGET: Record<string, { label: string; species?: PetSpecies; category?: ProductCategory }[]> = {
+  caes: [
+    { label: 'Todas para Cães', species: 'caes' },
+    { label: 'Rações Secas', species: 'caes', category: 'racoes' },
+    { label: 'Petiscos e Bifinhos', species: 'caes', category: 'petiscos' },
+    { label: 'Antipulgas e Farmácia', species: 'caes', category: 'farmacia' },
+    { label: 'Higiene e Tapetes', species: 'caes', category: 'higiene' },
+    { label: 'Brinquedos', species: 'caes', category: 'brinquedos' },
+    { label: 'Caminhas e Casinhas', species: 'caes', category: 'camas-casinhas' },
+  ],
+  gatos: [
+    { label: 'Tudo para Gatos', species: 'gatos' },
+    { label: 'Rações Secas e Úmidas', species: 'gatos', category: 'racoes' },
+    { label: 'Areias Higiênicas', species: 'gatos', category: 'higiene' },
+    { label: 'Petiscos e Churu', species: 'gatos', category: 'petiscos' },
+    { label: 'Arranhadores e Brinquedos', species: 'gatos', category: 'brinquedos' },
+    { label: 'Farmácia Felina', species: 'gatos', category: 'farmacia' },
+  ],
+  aves: [
+    { label: 'Tudo para Aves', species: 'aves' },
+    { label: 'Rações e Misturas', species: 'aves', category: 'racoes' },
+    { label: 'Gaiolas e Viveiros', species: 'aves', category: 'gaiolas' },
+  ],
+  peixes: [
+    { label: 'Tudo para Aquarismo', species: 'peixes' },
+    { label: 'Rações e Flocos', species: 'peixes', category: 'racoes' },
+    { label: 'Tratamento de Água', species: 'peixes', category: 'aquarios-filtros' },
+  ],
+  outros: [
+    { label: 'Coelhos e Roedores', species: 'outros' },
+    { label: 'Feno e Alimentos', species: 'outros', category: 'racoes' },
+  ],
+  farmacia: [
+    { label: 'Todos os Medicamentos', category: 'farmacia' },
+    { label: 'Antipulgas e Carrapatos', category: 'farmacia' },
+    { label: 'Vermífugos', category: 'farmacia' },
+  ],
+};
 
 export const Header: React.FC = () => {
   const {
@@ -36,6 +75,8 @@ export const Header: React.FC = () => {
     settings,
     whatsappSettings,
     storeLocations,
+    menuItems,
+    activeMenuItems,
   } = useStore();
 
   const OFFICIAL_WHATSAPP_URL = 'https://api.whatsapp.com/message/LXFEPCZXUZ3GA1?autoload=1&app_absent=0';
@@ -109,97 +150,101 @@ export const Header: React.FC = () => {
     'Tapete Higiênico',
   ];
 
-  const departments: {
-    id: string;
-    label: string;
-    icon: string;
-    species?: PetSpecies;
-    category?: ProductCategory;
-    isPromo?: boolean;
-    subItems?: { label: string; species?: PetSpecies; category?: ProductCategory }[];
-  }[] = [
-    {
-      id: 'caes',
-      label: 'Cães',
-      icon: '🐶',
-      species: 'caes',
-      subItems: [
-        { label: 'Todas para Cães', species: 'caes' },
-        { label: 'Rações Secas', species: 'caes', category: 'racoes' },
-        { label: 'Petiscos e Bifinhos', species: 'caes', category: 'petiscos' },
-        { label: 'Antipulgas e Farmácia', species: 'caes', category: 'farmacia' },
-        { label: 'Higiene e Tapetes', species: 'caes', category: 'higiene' },
-        { label: 'Brinquedos', species: 'caes', category: 'brinquedos' },
-        { label: 'Caminhas e Casinhas', species: 'caes', category: 'camas-casinhas' },
-      ],
-    },
-    {
-      id: 'gatos',
-      label: 'Gatos',
-      icon: '🐱',
-      species: 'gatos',
-      subItems: [
-        { label: 'Tudo para Gatos', species: 'gatos' },
-        { label: 'Rações Secas e Úmidas', species: 'gatos', category: 'racoes' },
-        { label: 'Areias Higiênicas', species: 'gatos', category: 'higiene' },
-        { label: 'Petiscos e Churu', species: 'gatos', category: 'petiscos' },
-        { label: 'Arranhadores e Brinquedos', species: 'gatos', category: 'brinquedos' },
-        { label: 'Farmácia Felina', species: 'gatos', category: 'farmacia' },
-      ],
-    },
-    {
-      id: 'aves',
-      label: 'Aves',
-      icon: '🐦',
-      species: 'aves',
-      subItems: [
-        { label: 'Tudo para Aves', species: 'aves' },
-        { label: 'Rações e Misturas', species: 'aves', category: 'racoes' },
-        { label: 'Gaiolas e Viveiros', species: 'aves', category: 'gaiolas' },
-      ],
-    },
-    {
-      id: 'peixes',
-      label: 'Peixes & Aquários',
-      icon: '🐠',
-      species: 'peixes',
-      subItems: [
-        { label: 'Tudo para Aquarismo', species: 'peixes' },
-        { label: 'Rações e Flocos', species: 'peixes', category: 'racoes' },
-        { label: 'Tratamento de Água', species: 'peixes', category: 'aquarios-filtros' },
-      ],
-    },
-    {
-      id: 'outros',
-      label: 'Pequenos Animais',
-      icon: '🐰',
-      species: 'outros',
-      subItems: [
-        { label: 'Coelhos e Roedores', species: 'outros' },
-        { label: 'Feno e Alimentos', species: 'outros', category: 'racoes' },
-      ],
-    },
-    {
-      id: 'farmacia',
-      label: 'Farmácia Pet',
-      icon: '💊',
-      category: 'farmacia',
-      subItems: [
-        { label: 'Todos os Medicamentos', category: 'farmacia' },
-        { label: 'Antipulgas e Carrapatos', category: 'farmacia' },
-        { label: 'Vermífugos', category: 'farmacia' },
-      ],
-    },
-    {
-      id: 'ofertas',
-      label: 'Ofertas do Dia',
-      icon: '🔥',
-      isPromo: true,
-    },
-  ];
+  const departments = useMemo(() => {
+    const sourceItems: MenuItem[] =
+      menuItems && menuItems.length > 0
+        ? activeMenuItems
+        : [
+            { id: 'caes', label: 'Cães', targetType: 'species', targetValue: 'caes', emoji: '🐶', active: true, order: 1 },
+            { id: 'gatos', label: 'Gatos', targetType: 'species', targetValue: 'gatos', emoji: '🐱', active: true, order: 2 },
+            { id: 'aves', label: 'Aves', targetType: 'species', targetValue: 'aves', emoji: '🐦', active: true, order: 3 },
+            { id: 'peixes', label: 'Peixes & Aquários', targetType: 'species', targetValue: 'peixes', emoji: '🐠', active: true, order: 4 },
+            { id: 'outros', label: 'Pequenos Animais', targetType: 'species', targetValue: 'outros', emoji: '🐰', active: true, order: 5 },
+            { id: 'farmacia', label: 'Farmácia Pet', targetType: 'category', targetValue: 'farmacia', emoji: '💊', active: true, order: 6 },
+            { id: 'ofertas', label: 'Ofertas do Dia', targetType: 'offers', targetValue: 'offers', emoji: '🔥', active: true, order: 7 },
+          ];
 
-  const handleSelectDepartment = (dep: typeof departments[0]) => {
-    if (dep.isPromo) {
+    return sourceItems.map((item) => {
+      const resolvedType = item.targetType || item.type || 'catalog';
+      const resolvedValue = item.targetValue || '';
+      const resolvedIcon = item.emoji || item.icon || '🐾';
+
+      const species =
+        resolvedType === 'species' ? ((resolvedValue || 'caes') as PetSpecies) : undefined;
+      const category =
+        resolvedType === 'category' ? ((resolvedValue || 'racoes') as ProductCategory) : undefined;
+      const isPromo = resolvedType === 'offers';
+      const subItems =
+        (resolvedType === 'species' || resolvedType === 'category') && resolvedValue
+          ? SUB_ITEMS_BY_TARGET[resolvedValue]
+          : undefined;
+
+      return {
+        id: item.id,
+        label: item.label,
+        icon: resolvedIcon,
+        targetType: resolvedType,
+        targetValue: resolvedValue,
+        href: item.href,
+        species,
+        category,
+        isPromo,
+        subItems,
+      };
+    });
+  }, [menuItems, activeMenuItems]);
+
+  const handleSelectDepartment = (dep: (typeof departments)[0]) => {
+    setActiveDropdown(null);
+    setIsMobileMenuOpen(false);
+
+    const tType = dep.targetType;
+    const tVal = dep.targetValue || '';
+    const rawHref = dep.href || '';
+
+    if (tType === 'external' || tVal.startsWith('http://') || tVal.startsWith('https://') || rawHref.startsWith('http://') || rawHref.startsWith('https://')) {
+      const externalUrl = tVal.startsWith('http') ? tVal : rawHref;
+      window.open(externalUrl, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
+    if (tType === 'stores' || tVal === 'stores') {
+      setIsStoreLocationsOpen(true);
+      return;
+    }
+
+    if (tType === 'section' || tVal === 'services' || tVal.endsWith('-section') || tVal === 'main-footer' || rawHref.startsWith('#') && rawHref.length > 1) {
+      const sectionId =
+        tVal === 'services'
+          ? 'services-section'
+          : (tVal || rawHref).replace(/^#/, '');
+      document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth' });
+      return;
+    }
+
+    if (tType === 'whatsapp') {
+      const lowerLabel = dep.label.toLowerCase();
+      if (lowerLabel.includes('clínica') || lowerLabel.includes('clinica')) {
+        window.open(
+          `https://api.whatsapp.com/send?phone=${whatsappDigits}&text=${encodeURIComponent('Olá! Sou cliente do Instagram e preciso de atendimento na Clínica Veterinária 24h.')}`,
+          '_blank',
+          'noopener,noreferrer'
+        );
+        return;
+      }
+      if (lowerLabel.includes('banho')) {
+        window.open(
+          `https://api.whatsapp.com/send?phone=${whatsappDigits}&text=${encodeURIComponent('Quero agendar Banho e Tosa sou cliente do instagram')}`,
+          '_blank',
+          'noopener,noreferrer'
+        );
+        return;
+      }
+      window.open(headerWhatsappHref, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
+    if (dep.isPromo || tType === 'offers') {
       setFilters((prev) => ({
         ...prev,
         onlyOffers: true,
@@ -223,9 +268,15 @@ export const Header: React.FC = () => {
         onlyOffers: false,
         searchQuery: '',
       }));
+    } else {
+      setFilters((prev) => ({
+        ...prev,
+        species: 'all',
+        category: 'all',
+        onlyOffers: false,
+        searchQuery: '',
+      }));
     }
-    setActiveDropdown(null);
-    setIsMobileMenuOpen(false);
 
     const catalogEl = document.getElementById('catalog-section');
     if (catalogEl) {

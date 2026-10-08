@@ -240,12 +240,13 @@ export const INITIAL_BRANDS: PartnerBrand[] = [
 ];
 
 export const INITIAL_MENU_ITEMS: MenuItem[] = [
-  { id: 'menu-1', label: 'Serviços', targetType: 'whatsapp', targetValue: 'services', emoji: '✨', active: true, order: 1 },
-  { id: 'menu-2', label: 'Clínica 24h', targetType: 'whatsapp', targetValue: 'whatsapp', emoji: '🏥', active: true, order: 2 },
-  { id: 'menu-3', label: 'Banho & Tosa', targetType: 'whatsapp', targetValue: 'whatsapp', emoji: '✂️', active: true, order: 3 },
-  { id: 'menu-4', label: 'Cachorros', targetType: 'species', targetValue: 'caes', emoji: '🐶', active: true, order: 4 },
-  { id: 'menu-5', label: 'Gatos', targetType: 'species', targetValue: 'gatos', emoji: '🐱', active: true, order: 5 },
-  { id: 'menu-6', label: 'Farmácia Pet', targetType: 'category', targetValue: 'farmacia', emoji: '💊', active: true, order: 6 },
+  { id: 'menu-caes', label: 'Cães', targetType: 'species', targetValue: 'caes', emoji: '🐶', icon: '🐶', type: 'species', active: true, order: 1 },
+  { id: 'menu-gatos', label: 'Gatos', targetType: 'species', targetValue: 'gatos', emoji: '🐱', icon: '🐱', type: 'species', active: true, order: 2 },
+  { id: 'menu-aves', label: 'Aves', targetType: 'species', targetValue: 'aves', emoji: '🐦', icon: '🐦', type: 'species', active: true, order: 3 },
+  { id: 'menu-peixes', label: 'Peixes & Aquários', targetType: 'species', targetValue: 'peixes', emoji: '🐠', icon: '🐠', type: 'species', active: true, order: 4 },
+  { id: 'menu-outros', label: 'Pequenos Animais', targetType: 'species', targetValue: 'outros', emoji: '🐰', icon: '🐰', type: 'species', active: true, order: 5 },
+  { id: 'menu-farmacia', label: 'Farmácia Pet', targetType: 'category', targetValue: 'farmacia', emoji: '💊', icon: '💊', type: 'category', active: true, order: 6 },
+  { id: 'menu-ofertas', label: 'Ofertas do Dia', targetType: 'offers', targetValue: 'offers', emoji: '🔥', icon: '🔥', type: 'offers', active: true, order: 7 },
 ];
 
 export const INITIAL_APPEARANCE: SiteAppearance = {

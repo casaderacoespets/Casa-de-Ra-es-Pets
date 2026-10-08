@@ -188,9 +188,12 @@ export interface PartnerBrand {
 export interface MenuItem {
   id: string;
   label: string;
-  targetType: 'species' | 'category' | 'offers' | 'stores' | 'whatsapp';
+  targetType: 'species' | 'category' | 'offers' | 'stores' | 'whatsapp' | 'catalog' | 'section' | 'external';
   targetValue: string;
   emoji?: string;
+  icon?: string;
+  type?: 'species' | 'category' | 'offers' | 'stores' | 'whatsapp' | 'catalog' | 'section' | 'external';
+  href?: string;
   active: boolean;
   order: number;
 }
