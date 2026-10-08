@@ -29,47 +29,64 @@ const ICON_MAP: Record<string, React.FC<{ className?: string }>> = {
 };
 
 export const ServicesSection: React.FC = () => {
-  const { services, settings } = useStore();
+  const { services, settings, whatsappSettings } = useStore();
 
   const activeServices = (services || []).filter((s) => s.active && s.id !== 'all' && s.title !== 'Todos os Serviços');
+
+  const OFFICIAL_WHATSAPP_URL = 'https://api.whatsapp.com/message/LXFEPCZXUZ3GA1?autoload=1&app_absent=0';
+  const rawWhatsappDigits = (settings.primaryWhatsapp || whatsappSettings?.primaryNumber || '5511975158424').replace(/\D/g, '');
+  const whatsappDigits = rawWhatsappDigits.startsWith('55') ? rawWhatsappDigits : `55${rawWhatsappDigits || '11975158424'}`;
+  const defaultMsg = whatsappSettings?.defaultContactMessage || 'Cliente do Instagram. Tenhos Dúvidas ';
+  const isDefaultOfficialWhatsapp =
+    (whatsappDigits === '5511975158424' || rawWhatsappDigits === '11975158424') &&
+    defaultMsg.trim() === 'Cliente do Instagram. Tenhos Dúvidas';
+  const generalWhatsappHref = isDefaultOfficialWhatsapp
+    ? OFFICIAL_WHATSAPP_URL
+    : `https://api.whatsapp.com/send?phone=${whatsappDigits}&text=${encodeURIComponent(defaultMsg)}`;
+
+  const rawPhoneDigits = (settings.primaryPhone || '(11) 2495-0511').replace(/\D/g, '') || '1124950511';
+  const primaryTelHref = rawPhoneDigits.startsWith('55') ? `tel:+${rawPhoneDigits}` : `tel:+55${rawPhoneDigits}`;
 
   const categories = [
     {
       id: 'clinica',
       label: 'Clínica 24h',
-      whatsappUrl: `https://api.whatsapp.com/send?phone=5511975158424&text=${encodeURIComponent('Olá! Sou cliente do Instagram e preciso de atendimento na Clínica Veterinária 24h.')}`,
+      whatsappUrl: `https://api.whatsapp.com/send?phone=${whatsappDigits}&text=${encodeURIComponent('Olá! Sou cliente do Instagram e preciso de atendimento na Clínica Veterinária 24h.')}`,
     },
     {
       id: 'banho_tosa',
       label: 'Banho & Tosa',
-      whatsappUrl: 'https://api.whatsapp.com/send?phone=5511975158424&text=Quero%20agendar%20Banho%20e%20Tosa%20sou%20cliente%20do%20instagram',
+      whatsappUrl: `https://api.whatsapp.com/send?phone=${whatsappDigits}&text=${encodeURIComponent('Quero agendar Banho e Tosa sou cliente do instagram')}`,
     },
     {
       id: 'petshop',
       label: 'Pet Shop',
-      whatsappUrl: `https://api.whatsapp.com/send?phone=5511975158424&text=${encodeURIComponent('Olá! Sou cliente do Instagram e gostaria de informações sobre produtos e atendimento do Pet Shop.')}`,
+      whatsappUrl: `https://api.whatsapp.com/send?phone=${whatsappDigits}&text=${encodeURIComponent('Olá! Sou cliente do Instagram e gostaria de informações sobre produtos e atendimento do Pet Shop.')}`,
     },
     {
       id: 'entrega',
       label: 'Entrega na Região',
-      whatsappUrl: `https://api.whatsapp.com/send?phone=5511975158424&text=${encodeURIComponent('Olá! Sou cliente do Instagram e gostaria de informações sobre entrega na região.')}`,
+      whatsappUrl: `https://api.whatsapp.com/send?phone=${whatsappDigits}&text=${encodeURIComponent('Olá! Sou cliente do Instagram e gostaria de informações sobre entrega na região.')}`,
     },
   ];
 
   const getServiceWhatsAppUrl = (service: ClinicService) => {
+    if (service.whatsappDefaultMessage && service.whatsappDefaultMessage.trim().length > 0) {
+      return `https://api.whatsapp.com/send?phone=${whatsappDigits}&text=${encodeURIComponent(service.whatsappDefaultMessage)}`;
+    }
     if (service.category === 'banho_tosa' || service.title?.toLowerCase().includes('banho')) {
-      return 'https://api.whatsapp.com/send?phone=5511975158424&text=Quero%20agendar%20Banho%20e%20Tosa%20sou%20cliente%20do%20instagram';
+      return `https://api.whatsapp.com/send?phone=${whatsappDigits}&text=${encodeURIComponent('Quero agendar Banho e Tosa sou cliente do instagram')}`;
     }
     if (service.category === 'clinica' || service.title?.toLowerCase().includes('clínica') || service.title?.toLowerCase().includes('clinica')) {
-      return `https://api.whatsapp.com/send?phone=5511975158424&text=${encodeURIComponent('Olá! Sou cliente do Instagram e preciso de atendimento na Clínica Veterinária 24h.')}`;
+      return `https://api.whatsapp.com/send?phone=${whatsappDigits}&text=${encodeURIComponent('Olá! Sou cliente do Instagram e preciso de atendimento na Clínica Veterinária 24h.')}`;
     }
     if (service.category === 'petshop' || service.title?.toLowerCase().includes('pet shop')) {
-      return `https://api.whatsapp.com/send?phone=5511975158424&text=${encodeURIComponent('Olá! Sou cliente do Instagram e gostaria de informações sobre produtos e atendimento do Pet Shop.')}`;
+      return `https://api.whatsapp.com/send?phone=${whatsappDigits}&text=${encodeURIComponent('Olá! Sou cliente do Instagram e gostaria de informações sobre produtos e atendimento do Pet Shop.')}`;
     }
     if (service.category === 'entrega' || service.title?.toLowerCase().includes('entrega')) {
-      return `https://api.whatsapp.com/send?phone=5511975158424&text=${encodeURIComponent('Olá! Sou cliente do Instagram e gostaria de informações sobre entrega na região.')}`;
+      return `https://api.whatsapp.com/send?phone=${whatsappDigits}&text=${encodeURIComponent('Olá! Sou cliente do Instagram e gostaria de informações sobre entrega na região.')}`;
     }
-    return 'https://api.whatsapp.com/send?phone=5511975158424&text=Cliente%20do%20Instagram.%20Tenhos%20D%C3%BAvidas%20';
+    return generalWhatsappHref;
   };
 
   const handleWhatsAppService = (service: ClinicService) => {
@@ -94,7 +111,7 @@ export const ServicesSection: React.FC = () => {
             Clínica Veterinária 24h & Cuidado Completo
           </h2>
           <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
-            Estrutura dedicada à saúde, higiene, alimentação e bem-estar do seu cão e gato.  Local de Atendimento » Grajaú e Apurá — São Paulo/SP.
+            Estrutura dedicada à saúde, higiene, alimentação e bem-estar do seu cão e gato. Local de Atendimento » {settings.serviceRegion || 'Grajaú e Apurá — São Paulo/SP'}.
           </p>
 
           {/* Category Filter Pills */}
@@ -193,7 +210,7 @@ export const ServicesSection: React.FC = () => {
 
             <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto">
               <a
-                href="https://api.whatsapp.com/send?phone=5511975158424&text=Cliente%20do%20Instagram.%20Tenhos%20D%C3%BAvidas%20"
+                href={generalWhatsappHref}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-sm shadow-lg hover:shadow-emerald-600/30 transition-all cursor-pointer"
@@ -203,7 +220,7 @@ export const ServicesSection: React.FC = () => {
               </a>
 
               <a
-                href="tel:+551124950511"
+                href={primaryTelHref}
                 className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-2xl bg-white/10 hover:bg-white/20 text-white border border-white/20 font-extrabold text-sm transition-all cursor-pointer"
               >
                 <Phone className="w-4 h-4 text-amber-400" />

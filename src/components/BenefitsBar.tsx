@@ -32,17 +32,21 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
 };
 
 export const BenefitsBar: React.FC = () => {
-  const { setIsStoreLocationsOpen, settings, activeBenefits } = useStore();
+  const { setIsStoreLocationsOpen, settings, whatsappSettings, activeBenefits } = useStore();
+
+  const rawWhatsappDigits = (settings.primaryWhatsapp || whatsappSettings?.primaryNumber || '5511975158424').replace(/\D/g, '');
+  const whatsappDigits = rawWhatsappDigits.startsWith('55') ? rawWhatsappDigits : `55${rawWhatsappDigits || '11975158424'}`;
+  const defaultMsg = whatsappSettings?.defaultContactMessage || 'Cliente do Instagram. Tenhos Dúvidas ';
 
   const getAction = (benefit: SiteBenefit) => {
     if (benefit.actionType === 'whatsapp') {
       if (benefit.id === 'ben-1' || benefit.title.toLowerCase().includes('clínica') || benefit.title.toLowerCase().includes('clinica')) {
-        return () => window.open(`https://api.whatsapp.com/send?phone=5511975158424&text=${encodeURIComponent('Olá! Sou cliente do Instagram e preciso de atendimento na Clínica Veterinária 24h.')}`, '_blank');
+        return () => window.open(`https://api.whatsapp.com/send?phone=${whatsappDigits}&text=${encodeURIComponent('Olá! Sou cliente do Instagram e preciso de atendimento na Clínica Veterinária 24h.')}`, '_blank');
       }
       if (benefit.id === 'ben-2' || benefit.title.toLowerCase().includes('banho')) {
-        return () => window.open('https://api.whatsapp.com/send?phone=5511975158424&text=Quero%20agendar%20Banho%20e%20Tosa%20sou%20cliente%20do%20instagram', '_blank');
+        return () => window.open(`https://api.whatsapp.com/send?phone=${whatsappDigits}&text=${encodeURIComponent('Quero agendar Banho e Tosa sou cliente do instagram')}`, '_blank');
       }
-      return () => window.open('https://api.whatsapp.com/send?phone=5511975158424&text=Cliente%20do%20Instagram.%20Tenhos%20D%C3%BAvidas%20', '_blank');
+      return () => window.open(`https://api.whatsapp.com/send?phone=${whatsappDigits}&text=${encodeURIComponent(defaultMsg)}`, '_blank');
     }
     if (benefit.actionType === 'stores') {
       return () => setIsStoreLocationsOpen(true);

@@ -34,8 +34,23 @@ export const Header: React.FC = () => {
     setCategoryFilter,
     orders,
     settings,
+    whatsappSettings,
     storeLocations,
   } = useStore();
+
+  const OFFICIAL_WHATSAPP_URL = 'https://api.whatsapp.com/message/LXFEPCZXUZ3GA1?autoload=1&app_absent=0';
+  const rawWhatsappDigits = (settings.primaryWhatsapp || whatsappSettings?.primaryNumber || '5511975158424').replace(/\D/g, '');
+  const whatsappDigits = rawWhatsappDigits.startsWith('55') ? rawWhatsappDigits : `55${rawWhatsappDigits || '11975158424'}`;
+  const defaultMsg = whatsappSettings?.defaultContactMessage || 'Cliente do Instagram. Tenhos Dúvidas ';
+  const isDefaultOfficialWhatsapp =
+    (whatsappDigits === '5511975158424' || rawWhatsappDigits === '11975158424') &&
+    defaultMsg.trim() === 'Cliente do Instagram. Tenhos Dúvidas';
+  const headerWhatsappHref = isDefaultOfficialWhatsapp
+    ? OFFICIAL_WHATSAPP_URL
+    : `https://api.whatsapp.com/send?phone=${whatsappDigits}&text=${encodeURIComponent(defaultMsg)}`;
+
+  const rawPhoneDigits = (settings.primaryPhone || '(11) 2495-0511').replace(/\D/g, '') || '1124950511';
+  const headerPhoneHref = rawPhoneDigits.startsWith('55') ? `tel:+${rawPhoneDigits}` : `tel:+55${rawPhoneDigits}`;
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -243,7 +258,9 @@ export const Header: React.FC = () => {
           {/* LADO ESQUERDO */}
           <div className="flex items-center gap-2 text-slate-200 font-medium">
             <Truck className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400 shrink-0" />
-            <span className="text-[11px] sm:text-xs">Entrega rápida na região (Grajaú e Apurá) • Clínica 24 Horas</span>
+            <span className="text-[11px] sm:text-xs">
+              {settings.announcementText || 'Entrega rápida na região (Grajaú e Apurá) • Clínica 24 Horas'}
+            </span>
           </div>
 
           {/* LADO DIREITO */}
@@ -255,12 +272,12 @@ export const Header: React.FC = () => {
               id="top-bar-stores-btn"
             >
               <Store className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400 shrink-0" />
-              <span>Loja Física (Grajaú)</span>
+              <span>Loja Física ({storeLocations[0]?.neighborhood || 'Grajaú'})</span>
             </button>
 
             <div className="flex items-center gap-2 text-slate-200">
               <a
-                href="tel:+551124950511"
+                href={headerPhoneHref}
                 className="hover:text-amber-300 transition-colors font-medium flex items-center gap-1.5"
                 title="Ligar para telefone fixo"
               >
@@ -269,7 +286,7 @@ export const Header: React.FC = () => {
               </a>
               <span className="text-slate-600">|</span>
               <a
-                href="https://api.whatsapp.com/message/LXFEPCZXUZ3GA1?autoload=1&app_absent=0"
+                href={headerWhatsappHref}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-emerald-400 hover:text-emerald-300 transition-colors font-bold"
@@ -623,7 +640,7 @@ export const Header: React.FC = () => {
                   </button>
 
                   <a
-                    href="https://api.whatsapp.com/message/LXFEPCZXUZ3GA1?autoload=1&app_absent=0"
+                    href={headerWhatsappHref}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="w-full flex items-center gap-2 p-2.5 rounded-xl bg-emerald-50 text-emerald-800 font-semibold"

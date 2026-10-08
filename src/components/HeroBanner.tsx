@@ -7,7 +7,7 @@ import { resolveBannerImage } from '../utils/bannerResolver';
 import { INITIAL_BANNERS } from '../data/initialSiteData';
 
 export const HeroBanner: React.FC = () => {
-  const { setFilters, settings, activeBanners, appearance } = useStore();
+  const { setFilters, settings, whatsappSettings, activeBanners, appearance } = useStore();
   const [currentSlide, setCurrentSlide] = useState(0);
 
   // Ensure we always have at least 2 valid official banners for continuous carousel rotation
@@ -46,11 +46,17 @@ export const HeroBanner: React.FC = () => {
       setFilters((prev) => ({ ...prev, species: 'all', category: 'all', onlyOffers: false, searchQuery: '' }));
       document.getElementById('catalog-section')?.scrollIntoView({ behavior: 'smooth' });
     } else if (type === 'whatsapp') {
-      window.open(
-        'https://api.whatsapp.com/send?phone=5511975158424&text=Cliente%20do%20Instagram.%20Tenhos%20D%C3%BAvidas%20',
-        '_blank',
-        'noopener,noreferrer'
-      );
+      const OFFICIAL_WHATSAPP_URL = 'https://api.whatsapp.com/message/LXFEPCZXUZ3GA1?autoload=1&app_absent=0';
+      const rawWhatsappDigits = (settings.primaryWhatsapp || whatsappSettings?.primaryNumber || '5511975158424').replace(/\D/g, '');
+      const whatsappDigits = rawWhatsappDigits.startsWith('55') ? rawWhatsappDigits : `55${rawWhatsappDigits || '11975158424'}`;
+      const defaultMsg = whatsappSettings?.defaultContactMessage || 'Cliente do Instagram. Tenhos Dúvidas ';
+      const isDefaultOfficialWhatsapp =
+        (whatsappDigits === '5511975158424' || rawWhatsappDigits === '11975158424') &&
+        defaultMsg.trim() === 'Cliente do Instagram. Tenhos Dúvidas';
+      const url = isDefaultOfficialWhatsapp
+        ? OFFICIAL_WHATSAPP_URL
+        : `https://api.whatsapp.com/send?phone=${whatsappDigits}&text=${encodeURIComponent(defaultMsg)}`;
+      window.open(url, '_blank', 'noopener,noreferrer');
     } else if (type === 'brand') {
       setFilters((prev) => ({ ...prev, brand: target || 'all', searchQuery: '', species: 'all', category: 'all' }));
       document.getElementById('catalog-section')?.scrollIntoView({ behavior: 'smooth' });

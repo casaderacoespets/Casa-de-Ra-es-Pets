@@ -4,11 +4,21 @@ import { X, MapPin, Clock, Phone, MessageCircle, Navigation, Store } from 'lucid
 import { useStore } from '../context/StoreContext';
 
 export const StoreLocationsModal: React.FC = () => {
-  const { storeLocations, isStoreLocationsOpen, setIsStoreLocationsOpen, settings } = useStore();
+  const { storeLocations, isStoreLocationsOpen, setIsStoreLocationsOpen, settings, whatsappSettings } = useStore();
 
   if (!isStoreLocationsOpen) return null;
 
   const activeStores = storeLocations.filter((s) => s.isActive !== false);
+  const OFFICIAL_WHATSAPP_URL = 'https://api.whatsapp.com/message/LXFEPCZXUZ3GA1?autoload=1&app_absent=0';
+  const rawWhatsappDigits = (settings.primaryWhatsapp || whatsappSettings?.primaryNumber || '5511975158424').replace(/\D/g, '');
+  const whatsappDigits = rawWhatsappDigits.startsWith('55') ? rawWhatsappDigits : `55${rawWhatsappDigits || '11975158424'}`;
+  const defaultMsg = whatsappSettings?.defaultContactMessage || 'Cliente do Instagram. Tenhos Dúvidas ';
+  const isDefaultOfficialWhatsapp =
+    (whatsappDigits === '5511975158424' || rawWhatsappDigits === '11975158424') &&
+    defaultMsg.trim() === 'Cliente do Instagram. Tenhos Dúvidas';
+  const modalWhatsappHref = isDefaultOfficialWhatsapp
+    ? OFFICIAL_WHATSAPP_URL
+    : `https://api.whatsapp.com/send?phone=${whatsappDigits}&text=${encodeURIComponent(defaultMsg)}`;
 
   return (
     <AnimatePresence>
@@ -84,9 +94,9 @@ export const StoreLocationsModal: React.FC = () => {
                   <div className="flex items-start gap-2">
                     <MapPin className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
                     <div>
-                      <span className="font-bold text-slate-800">{store.address}</span>
+                      <span className="font-bold text-slate-800">{settings.address || store.address}</span>
                       <span className="block text-slate-500">
-                        {store.neighborhood} — {store.city}/SP
+                        {store.neighborhood || 'Grajaú'} — {store.city || settings.city || 'São Paulo - SP'} (CEP: {settings.cep || '04846-000'})
                       </span>
                     </div>
                   </div>
@@ -98,14 +108,19 @@ export const StoreLocationsModal: React.FC = () => {
 
                   <div className="flex items-center gap-2">
                     <Phone className="w-4 h-4 text-slate-400 shrink-0" />
-                    <span>{store.phone}</span>
+                    <a
+                      href={`tel:+55${((settings.primaryPhone || store.phone || '(11) 2495-0511').replace(/\D/g, '') || '1124950511').replace(/^55/, '')}`}
+                      className="hover:text-[#0B2B6D] transition-colors"
+                    >
+                      {settings.primaryPhone || store.phone}
+                    </a>
                   </div>
                 </div>
 
                 {/* Action Buttons */}
                 <div className="pt-2 flex items-center gap-2 flex-wrap">
                   <a
-                    href="https://api.whatsapp.com/message/LXFEPCZXUZ3GA1?autoload=1&app_absent=0"
+                    href={modalWhatsappHref}
                     target="_blank"
                     rel="noreferrer"
                     className="flex-1 py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-colors"

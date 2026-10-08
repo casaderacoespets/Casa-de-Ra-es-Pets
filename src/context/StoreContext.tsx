@@ -611,39 +611,69 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     // 4. Brands
     const unsubBrands = subscribeToBrands((cloudBrands) => {
       if (cloudBrands && cloudBrands.length > 0) {
-        const defaultFeaturedMap: Record<string, { logoUrl: string; order: number }> = {
-          golden: {
+        const defaultFeaturedList = [
+          {
+            id: 'brand-3',
+            key: 'golden',
+            name: 'Golden',
             logoUrl: 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=800&auto=format&fit=crop&q=80',
             order: 1,
           },
-          magnus: {
+          {
+            id: 'brand-4',
+            key: 'magnus',
+            name: 'Magnus',
             logoUrl: 'https://images.unsplash.com/photo-1537151608828-ea2b11777ee8?w=800&auto=format&fit=crop&q=80',
             order: 2,
           },
-          'fórmula natural': {
+          {
+            id: 'brand-5',
+            key: 'formula natural',
+            name: 'Fórmula Natural',
             logoUrl: 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=800&auto=format&fit=crop&q=80',
             order: 3,
           },
-          'formula natural': {
-            logoUrl: 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=800&auto=format&fit=crop&q=80',
-            order: 3,
-          },
-        };
+        ];
+
+        const normalizeName = (str: string) =>
+          (str || '')
+            .trim()
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '');
 
         const sanitizedBrands = cloudBrands
           .filter((b) => !b.name?.toLowerCase().includes('dogmil'))
           .map((b) => {
-            const key = (b.name || '').trim().toLowerCase();
-            const def = defaultFeaturedMap[key];
-            if (def && b.featured === undefined) {
+            const norm = normalizeName(b.name);
+            const def = defaultFeaturedList.find((d) => d.key === norm);
+            if (def && (b.featured === undefined || (b.featured === false && !b.logoUrl))) {
               return {
                 ...b,
                 featured: true,
+                active: b.active !== false,
                 logoUrl: b.logoUrl || def.logoUrl,
+                order: def.order,
               };
             }
             return b;
           });
+
+        // Ensure Golden, Magnus, and Fórmula Natural are present even if Firestore had an older brand list
+        for (const def of defaultFeaturedList) {
+          const exists = sanitizedBrands.some((b) => normalizeName(b.name) === def.key);
+          if (!exists) {
+            sanitizedBrands.push({
+              id: def.id,
+              name: def.name,
+              logoUrl: def.logoUrl,
+              featured: true,
+              active: true,
+              order: def.order,
+            });
+          }
+        }
+
         setBrands(sanitizedBrands);
       }
     });
@@ -684,10 +714,31 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       }
     });
 
-    // 6. Locations: Enforce single official Pet's Family store (Av. Dona Belmira Marin, 3618 - Loja 1)
-    const unsubLocations = subscribeToLocations(() => {
-      // Pet's Family has strictly ONE store: Av. Dona Belmira Marin, 3618 - Loja 1 - Grajaú, SP, 04846-000
-      setStoreLocations(STORE_LOCATIONS);
+    // 6. Locations: Use Firestore locations while filtering out any legacy non-Pet's Family records
+    const unsubLocations = subscribeToLocations((cloudLocations) => {
+      if (cloudLocations && cloudLocations.length > 0) {
+        const validLocations = cloudLocations.filter((loc) => {
+          const text = `${loc.name || ''} ${loc.address || ''} ${loc.neighborhood || ''}`.toLowerCase();
+          const isLegacy =
+            text.includes('3610') ||
+            text.includes('eliana') ||
+            text.includes('pedras') ||
+            text.includes('cocaia') ||
+            text.includes('pedro escobar') ||
+            text.includes('carlos barbosa') ||
+            text.includes('portela') ||
+            text.includes('casa de rações') ||
+            text.includes('casa de racoes');
+          return !isLegacy;
+        });
+        if (validLocations.length > 0) {
+          setStoreLocations(validLocations);
+        } else {
+          setStoreLocations(STORE_LOCATIONS);
+        }
+      } else {
+        setStoreLocations(STORE_LOCATIONS);
+      }
     });
 
     // 7. Neighborhoods
@@ -704,12 +755,15 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       }
     });
 
-    // 8.5 Services: Never allow "Todos os Serviços" and enforce official messages
+    // 8.5 Services: Never allow "Todos os Serviços" and provide fallback official messages when empty
     const unsubServices = subscribeToServices((cloudServices) => {
       if (cloudServices && cloudServices.length > 0) {
         const validServices = cloudServices
           .filter((s) => s.id !== 'all' && s.title !== 'Todos os Serviços')
           .map((s) => {
+            if (s.whatsappDefaultMessage && s.whatsappDefaultMessage.trim().length > 0) {
+              return s;
+            }
             if (s.category === 'banho_tosa' || s.title?.toLowerCase().includes('banho')) {
               return {
                 ...s,

@@ -3,10 +3,22 @@ import { MessageCircle } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 
 export const FloatingWhatsApp: React.FC = () => {
-  const { settings } = useStore();
+  const { settings, whatsappSettings } = useStore();
 
   const handleClick = () => {
-    window.open('https://api.whatsapp.com/message/LXFEPCZXUZ3GA1?autoload=1&app_absent=0', '_blank', 'noopener,noreferrer');
+    const OFFICIAL_WHATSAPP_URL = 'https://api.whatsapp.com/message/LXFEPCZXUZ3GA1?autoload=1&app_absent=0';
+    const rawWhatsappDigits = (settings.primaryWhatsapp || whatsappSettings?.primaryNumber || '5511975158424').replace(/\D/g, '');
+    const whatsappDigits = rawWhatsappDigits.startsWith('55') ? rawWhatsappDigits : `55${rawWhatsappDigits || '11975158424'}`;
+    const defaultMsg = whatsappSettings?.defaultContactMessage || 'Cliente do Instagram. Tenhos Dúvidas ';
+    const isDefaultOfficialWhatsapp =
+      (whatsappDigits === '5511975158424' || rawWhatsappDigits === '11975158424') &&
+      defaultMsg.trim() === 'Cliente do Instagram. Tenhos Dúvidas';
+
+    const url = isDefaultOfficialWhatsapp
+      ? OFFICIAL_WHATSAPP_URL
+      : `https://api.whatsapp.com/send?phone=${whatsappDigits}&text=${encodeURIComponent(defaultMsg)}`;
+
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   return (

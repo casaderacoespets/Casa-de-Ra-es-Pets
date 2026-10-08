@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Settings, Phone, MapPin, Instagram, Facebook, MessageCircle, Building2 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 
@@ -10,7 +10,11 @@ export const AdminSettingsTab: React.FC = () => {
     primaryWhatsapp: settings.primaryWhatsapp || '5511975158424',
     primaryWhatsappDisplay: settings.primaryWhatsappDisplay || '(11) 97515-8424',
     primaryPhone: settings.primaryPhone || '(11) 2495-0511',
+    address: settings.address || 'Av. Dona Belmira Marin, 3618 - Loja 1',
+    cep: settings.cep || '04846-000',
+    serviceRegion: settings.serviceRegion || 'Grajaú e Apurá — São Paulo/SP',
     instagram: settings.instagram || 'familypet1',
+    linktree: settings.linktree || 'familypet1',
     facebook: settings.facebook || '',
     cnpj: settings.cnpj || '',
     aboutText:
@@ -23,6 +27,27 @@ export const AdminSettingsTab: React.FC = () => {
       'Cliente do Instagram. Tenhos Dúvidas ',
   });
 
+  useEffect(() => {
+    setForm((prev) => ({
+      ...prev,
+      storeName: settings.storeName || "Pet's Family",
+      primaryWhatsapp: settings.primaryWhatsapp || '5511975158424',
+      primaryWhatsappDisplay: settings.primaryWhatsappDisplay || '(11) 97515-8424',
+      primaryPhone: settings.primaryPhone || '(11) 2495-0511',
+      address: settings.address || 'Av. Dona Belmira Marin, 3618 - Loja 1',
+      cep: settings.cep || '04846-000',
+      serviceRegion: settings.serviceRegion || 'Grajaú e Apurá — São Paulo/SP',
+      instagram: settings.instagram || 'familypet1',
+      linktree: settings.linktree || 'familypet1',
+      facebook: settings.facebook || '',
+      cnpj: settings.cnpj || '',
+      aboutText: settings.aboutText || prev.aboutText,
+      copyrightText: settings.copyrightText || prev.copyrightText,
+      defaultContactMessage:
+        whatsappSettings.defaultContactMessage || prev.defaultContactMessage,
+    }));
+  }, [settings, whatsappSettings]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const cleanWhatsapp = form.primaryWhatsapp.replace(/\D/g, '');
@@ -33,7 +58,11 @@ export const AdminSettingsTab: React.FC = () => {
       primaryWhatsapp: finalWhatsapp,
       primaryWhatsappDisplay: form.primaryWhatsappDisplay,
       primaryPhone: form.primaryPhone,
+      address: form.address,
+      cep: form.cep,
+      serviceRegion: form.serviceRegion,
       instagram: form.instagram,
+      linktree: form.linktree,
       facebook: form.facebook,
       cnpj: form.cnpj,
       aboutText: form.aboutText,
@@ -120,7 +149,7 @@ export const AdminSettingsTab: React.FC = () => {
 
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
-                Texto de Exibição do Telefone / WhatsApp
+                Texto de Exibição do WhatsApp
               </label>
               <input
                 type="text"
@@ -131,7 +160,20 @@ export const AdminSettingsTab: React.FC = () => {
               />
             </div>
 
-            <div className="sm:col-span-2">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Telefone Fixo
+              </label>
+              <input
+                type="text"
+                value={form.primaryPhone}
+                onChange={(e) => setForm({ ...form, primaryPhone: e.target.value })}
+                placeholder="Ex: (11) 2495-0511"
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:bg-white focus:border-[#0B2B6D]"
+              />
+            </div>
+
+            <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
                 Mensagem Padrão do Botão Flutuante do WhatsApp
               </label>
@@ -146,6 +188,49 @@ export const AdminSettingsTab: React.FC = () => {
           </div>
         </div>
 
+        {/* Endereço & Região de Atendimento */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
+          <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+            <MapPin className="w-4 h-4 text-amber-500" />
+            <span>Endereço Oficial & Região de Atendimento</span>
+          </h4>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-bold text-slate-700 mb-1">Endereço Principal</label>
+              <input
+                type="text"
+                value={form.address}
+                onChange={(e) => setForm({ ...form, address: e.target.value })}
+                placeholder="Ex: Av. Dona Belmira Marin, 3618 - Loja 1"
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:bg-white focus:border-[#0B2B6D]"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">CEP</label>
+              <input
+                type="text"
+                value={form.cep}
+                onChange={(e) => setForm({ ...form, cep: e.target.value })}
+                placeholder="Ex: 04846-000"
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:bg-white focus:border-[#0B2B6D]"
+              />
+            </div>
+
+            <div className="sm:col-span-3">
+              <label className="block text-xs font-bold text-slate-700 mb-1">Região de Atendimento</label>
+              <input
+                type="text"
+                value={form.serviceRegion}
+                onChange={(e) => setForm({ ...form, serviceRegion: e.target.value })}
+                placeholder="Ex: Grajaú e Apurá — São Paulo/SP"
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:bg-white focus:border-[#0B2B6D]"
+              />
+            </div>
+          </div>
+        </div>
+
         {/* Redes Sociais */}
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
           <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">
@@ -153,13 +238,24 @@ export const AdminSettingsTab: React.FC = () => {
             <span>Redes Sociais</span>
           </h4>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">Usuário Instagram (@)</label>
               <input
                 type="text"
                 value={form.instagram}
                 onChange={(e) => setForm({ ...form, instagram: e.target.value })}
+                placeholder="familypet1"
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:bg-white focus:border-[#0B2B6D]"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Linktree (usuário ou URL)</label>
+              <input
+                type="text"
+                value={form.linktree}
+                onChange={(e) => setForm({ ...form, linktree: e.target.value })}
                 placeholder="familypet1"
                 className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:bg-white focus:border-[#0B2B6D]"
               />
