@@ -53,6 +53,7 @@ import {
   deleteBannerFromFirestore,
   saveBrandToFirestore,
   deleteBrandFromFirestore,
+  reconcileBrandsInFirestore,
   saveBenefitToFirestore,
   deleteBenefitFromFirestore,
   saveLocationToFirestore,
@@ -196,6 +197,7 @@ interface StoreContextType {
   updateBrand: (b: PartnerBrand) => void;
   deleteBrand: (id: string) => void;
   toggleBrandActive: (id: string) => void;
+  reorderBrands: (id: string, direction: 'up' | 'down') => void;
 
   // Admin Operations - Menu
   addMenuItem: (m: Omit<MenuItem, 'id'>) => void;
@@ -493,6 +495,8 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   // REAL-TIME FIRESTORE SUBSCRIPTIONS
   // =========================================================================
   const isInitialLoadRef = useRef(true);
+  const pendingDuplicateBrandIdsRef = useRef<string[]>([]);
+  const brandsNeedReconcileRef = useRef<boolean>(false);
 
   useEffect(() => {
     if (!isFirebaseConfigured()) {
@@ -611,70 +615,180 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     // 4. Brands
     const unsubBrands = subscribeToBrands((cloudBrands) => {
       if (cloudBrands && cloudBrands.length > 0) {
-        const defaultFeaturedList = [
-          {
-            id: 'brand-3',
-            key: 'golden',
-            name: 'Golden',
+        const defaultFeaturedMap: Record<
+          string,
+          { canonicalId: string; canonicalName: string; logoUrl: string; defaultOrder: number }
+        > = {
+          golden: {
+            canonicalId: 'brand-3',
+            canonicalName: 'Golden',
             logoUrl: 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=800&auto=format&fit=crop&q=80',
-            order: 1,
+            defaultOrder: 1,
           },
-          {
-            id: 'brand-4',
-            key: 'magnus',
-            name: 'Magnus',
+          magnus: {
+            canonicalId: 'brand-4',
+            canonicalName: 'Magnus',
             logoUrl: 'https://images.unsplash.com/photo-1537151608828-ea2b11777ee8?w=800&auto=format&fit=crop&q=80',
-            order: 2,
+            defaultOrder: 2,
           },
-          {
-            id: 'brand-5',
-            key: 'formula natural',
-            name: 'Fórmula Natural',
+          'formula natural': {
+            canonicalId: 'brand-5',
+            canonicalName: 'Fórmula Natural',
             logoUrl: 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=800&auto=format&fit=crop&q=80',
-            order: 3,
+            defaultOrder: 3,
           },
-        ];
+        };
 
         const normalizeName = (str: string) =>
           (str || '')
             .trim()
             .toLowerCase()
             .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '');
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/\s+/g, ' ');
 
-        const sanitizedBrands = cloudBrands
-          .filter((b) => !b.name?.toLowerCase().includes('dogmil'))
-          .map((b) => {
-            const norm = normalizeName(b.name);
-            const def = defaultFeaturedList.find((d) => d.key === norm);
-            if (def && (b.featured === undefined || (b.featured === false && !b.logoUrl))) {
-              return {
-                ...b,
-                featured: true,
-                active: b.active !== false,
-                logoUrl: b.logoUrl || def.logoUrl,
-                order: def.order,
-              };
-            }
-            return b;
-          });
+        const validCloudBrands = cloudBrands.filter(
+          (b) => b && b.name && !b.name.toLowerCase().includes('dogmil')
+        );
 
-        // Ensure Golden, Magnus, and Fórmula Natural are present even if Firestore had an older brand list
-        for (const def of defaultFeaturedList) {
-          const exists = sanitizedBrands.some((b) => normalizeName(b.name) === def.key);
-          if (!exists) {
-            sanitizedBrands.push({
-              id: def.id,
-              name: def.name,
-              logoUrl: def.logoUrl,
-              featured: true,
-              active: true,
-              order: def.order,
-            });
-          }
+        // Group brands by normalized name to eliminate duplicate documents
+        const groupedByKey = new Map<string, PartnerBrand[]>();
+        for (const b of validCloudBrands) {
+          const key = normalizeName(b.name);
+          if (!key) continue;
+          const existing = groupedByKey.get(key) || [];
+          existing.push(b);
+          groupedByKey.set(key, existing);
         }
 
-        setBrands(sanitizedBrands);
+        const duplicateIdsToRemove: string[] = [];
+        const dedupedList: PartnerBrand[] = [];
+        let hadLegacyOrDuplicateAdjustment = false;
+
+        groupedByKey.forEach((group, key) => {
+          const def = defaultFeaturedMap[key];
+          // Prefer canonical ID (e.g., brand-1..brand-14) when merging duplicates
+          const primary =
+            group.find((d) => /^brand-\d+$/.test(d.id) && d.id.length <= 9) || group[0];
+
+          group.forEach((d) => {
+            if (d.id !== primary.id) {
+              duplicateIdsToRemove.push(d.id);
+              hadLegacyOrDuplicateAdjustment = true;
+            }
+          });
+
+          // Merge logoUrl: prefer custom logoUrl over default or empty
+          const customLogoDoc = group.find(
+            (d) => d.logoUrl && d.logoUrl.trim() !== '' && (!def || d.logoUrl !== def.logoUrl)
+          );
+          const anyLogoDoc = group.find((d) => d.logoUrl && d.logoUrl.trim() !== '');
+          const mergedLogoUrl = customLogoDoc?.logoUrl || anyLogoDoc?.logoUrl || def?.logoUrl || '';
+
+          if (group.length > 1) {
+            const anyFeatured = group.some((d) => d.featured === true);
+            const allInactive = group.every((d) => d.active === false);
+            const minOrder = Math.min(
+              ...group.map((d) => (Number(d.order) > 0 ? Number(d.order) : 9999))
+            );
+            dedupedList.push({
+              ...primary,
+              id: primary.id,
+              name: def?.canonicalName || primary.name.trim(),
+              logoUrl: mergedLogoUrl || undefined,
+              featured: def ? true : anyFeatured,
+              active: !allInactive,
+              order: def ? def.defaultOrder : minOrder,
+            });
+          } else {
+            const isLegacyUnmigrated = Boolean(
+              def && (primary.featured === undefined || (primary.featured === false && !primary.logoUrl))
+            );
+            if (isLegacyUnmigrated) {
+              hadLegacyOrDuplicateAdjustment = true;
+            }
+            dedupedList.push({
+              ...primary,
+              id: primary.id,
+              name: primary.name.trim(),
+              logoUrl: (isLegacyUnmigrated ? mergedLogoUrl : primary.logoUrl) || undefined,
+              featured: isLegacyUnmigrated ? true : Boolean(primary.featured),
+              active: primary.active !== false,
+              order: isLegacyUnmigrated && def ? def.defaultOrder : Number(primary.order) || 9999,
+            });
+          }
+        });
+
+        // Detect if there are duplicate order values (e.g. legacy Premier Pet #1 / Royal Canin #2 colliding with Golden #1 / Magnus #2)
+        const orderCounts = new Map<number, number>();
+        dedupedList.forEach((b) => {
+          const o = Number(b.order) || 9999;
+          orderCounts.set(o, (orderCounts.get(o) || 0) + 1);
+        });
+        const hasOrderCollisions = Array.from(orderCounts.values()).some((count) => count > 1);
+
+        if (hadLegacyOrDuplicateAdjustment || hasOrderCollisions) {
+          dedupedList.forEach((b) => {
+            const key = normalizeName(b.name);
+            if (!defaultFeaturedMap[key] && !b.featured && (b.order === 1 || b.order === 2 || b.order === 3)) {
+              const collidingFeatured = dedupedList.some(
+                (other) => other.id !== b.id && other.featured && other.order === b.order
+              );
+              if (collidingFeatured) {
+                b.order = b.order + 3;
+              }
+            }
+          });
+        }
+
+        // Sort in ascending order of position, breaking ties deterministically
+        dedupedList.sort((a, b) => {
+          const orderA = Number(a.order) || 9999;
+          const orderB = Number(b.order) || 9999;
+          if (orderA !== orderB) return orderA - orderB;
+          if (Boolean(a.featured) !== Boolean(b.featured)) {
+            return a.featured ? -1 : 1;
+          }
+          return (a.name || '').localeCompare(b.name || '', 'pt-BR');
+        });
+
+        // Assign explicit sequential integer positions: 1, 2, 3, 4...
+        const normalizedBrands: PartnerBrand[] = dedupedList.map((b, index) => ({
+          ...b,
+          name: b.name.trim(),
+          featured: Boolean(b.featured),
+          active: b.active !== false,
+          order: index + 1,
+        }));
+
+        pendingDuplicateBrandIdsRef.current = duplicateIdsToRemove;
+
+        // Check if Firestore documents need one-time reconciliation (duplicates or non-sequential orders)
+        const needsFirestoreReconcile =
+          duplicateIdsToRemove.length > 0 ||
+          normalizedBrands.some((nb) => {
+            const raw = validCloudBrands.find((r) => r.id === nb.id);
+            if (!raw) return true;
+            return (
+              Number(raw.order) !== nb.order ||
+              (raw.name || '').trim() !== nb.name ||
+              typeof raw.featured !== 'boolean' ||
+              raw.featured !== nb.featured ||
+              (raw.logoUrl || '') !== (nb.logoUrl || '')
+            );
+          });
+
+        brandsNeedReconcileRef.current = needsFirestoreReconcile;
+        setBrands(normalizedBrands);
+
+        if (needsFirestoreReconcile && auth?.currentUser) {
+          reconcileBrandsInFirestore(normalizedBrands, duplicateIdsToRemove)
+            .then(() => {
+              pendingDuplicateBrandIdsRef.current = [];
+              brandsNeedReconcileRef.current = false;
+            })
+            .catch((err) => console.warn('[Firestore] Aviso ao reconciliar marcas:', err));
+        }
       }
     });
 
@@ -894,6 +1008,15 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         setOrders(sorted);
       }
     });
+
+    if (brandsNeedReconcileRef.current || pendingDuplicateBrandIdsRef.current.length > 0) {
+      reconcileBrandsInFirestore(brands, pendingDuplicateBrandIdsRef.current)
+        .then(() => {
+          pendingDuplicateBrandIdsRef.current = [];
+          brandsNeedReconcileRef.current = false;
+        })
+        .catch((err) => console.warn('[Firestore] Aviso ao reconciliar marcas após login admin:', err));
+    }
 
     return () => {
       unsubOrders();
@@ -1398,16 +1521,43 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   };
 
   // Brand Actions
+  const normalizeBrandNameKey = (str: string) =>
+    (str || '')
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/\s+/g, ' ');
+
   const addBrand = async (data: Omit<PartnerBrand, 'id'>) => {
+    const cleanName = (data.name || '').trim();
+    if (!cleanName) return;
+
+    const existing = brands.find(
+      (b) => normalizeBrandNameKey(b.name) === normalizeBrandNameKey(cleanName)
+    );
+    if (existing) {
+      showToast(`A marca "${existing.name}" já está cadastrada.`, 'warning');
+      return;
+    }
+
+    const sorted = [...brands].sort((a, b) => (a.order || 0) - (b.order || 0));
     const newBrand: PartnerBrand = {
       ...data,
       id: `brand-${Date.now()}`,
+      name: cleanName,
+      featured: Boolean(data.featured),
       active: data.active ?? true,
-      order: data.order || brands.length + 1,
+      order: sorted.length + 1,
     };
-    setBrands((prev) => [...prev, newBrand]);
+    const nextBrands = [...sorted, newBrand].map((b, idx) => ({
+      ...b,
+      order: idx + 1,
+    }));
+    setBrands(nextBrands);
     try {
-      await saveBrandToFirestore(newBrand);
+      await reconcileBrandsInFirestore(nextBrands, pendingDuplicateBrandIdsRef.current);
+      pendingDuplicateBrandIdsRef.current = [];
       showToast('Marca salva no Firestore!', 'success');
     } catch (e) {
       showToast('Marca adicionada!', 'success');
@@ -1415,9 +1565,36 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   };
 
   const updateBrand = async (updated: PartnerBrand) => {
-    setBrands((prev) => prev.map((b) => (b.id === updated.id ? updated : b)));
+    const cleanName = (updated.name || '').trim();
+    if (!cleanName) return;
+
+    const duplicate = brands.find(
+      (b) => b.id !== updated.id && normalizeBrandNameKey(b.name) === normalizeBrandNameKey(cleanName)
+    );
+    if (duplicate) {
+      showToast(`Já existe outra marca cadastrada com o nome "${duplicate.name}".`, 'warning');
+      return;
+    }
+
+    const normalizedUpdated: PartnerBrand = {
+      ...updated,
+      name: cleanName,
+      featured: Boolean(updated.featured),
+      active: updated.active !== false,
+    };
+
+    const nextBrands = [...brands]
+      .map((b) => (b.id === normalizedUpdated.id ? normalizedUpdated : b))
+      .sort((a, b) => (a.order || 0) - (b.order || 0))
+      .map((b, idx) => ({
+        ...b,
+        order: idx + 1,
+      }));
+
+    setBrands(nextBrands);
     try {
-      await saveBrandToFirestore(updated);
+      await reconcileBrandsInFirestore(nextBrands, pendingDuplicateBrandIdsRef.current);
+      pendingDuplicateBrandIdsRef.current = [];
       showToast('Marca atualizada no Firestore!', 'success');
     } catch (e) {
       showToast('Marca atualizada!', 'success');
@@ -1425,11 +1602,27 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   };
 
   const deleteBrand = async (id: string) => {
-    setBrands((prev) => prev.filter((b) => b.id !== id));
+    const target = brands.find((b) => b.id === id);
+    const targetKey = target ? normalizeBrandNameKey(target.name) : '';
+    const remaining = brands
+      .filter((b) => b.id !== id && (!targetKey || normalizeBrandNameKey(b.name) !== targetKey))
+      .sort((a, b) => (a.order || 0) - (b.order || 0))
+      .map((b, idx) => ({
+        ...b,
+        order: idx + 1,
+      }));
+
+    const idsToDelete = [id, ...pendingDuplicateBrandIdsRef.current];
+    setBrands(remaining);
     try {
-      await deleteBrandFromFirestore(id);
+      await reconcileBrandsInFirestore(remaining, idsToDelete);
+      pendingDuplicateBrandIdsRef.current = [];
     } catch (e) {
-      console.warn(e);
+      try {
+        await deleteBrandFromFirestore(id);
+      } catch (err) {
+        console.warn(err);
+      }
     }
     showToast('Marca removida.', 'info');
   };
@@ -1437,12 +1630,53 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const toggleBrandActive = async (id: string) => {
     const brand = brands.find((b) => b.id === id);
     if (!brand) return;
-    const updated = { ...brand, active: !brand.active };
-    setBrands((prev) => prev.map((b) => (b.id === id ? updated : b)));
+    const updated: PartnerBrand = {
+      ...brand,
+      featured: Boolean(brand.featured),
+      active: brand.active === false ? true : false,
+    };
+    const nextBrands = [...brands]
+      .map((b) => (b.id === id ? updated : b))
+      .sort((a, b) => (a.order || 0) - (b.order || 0))
+      .map((b, idx) => ({
+        ...b,
+        order: idx + 1,
+      }));
+    setBrands(nextBrands);
     try {
-      await saveBrandToFirestore(updated);
+      await saveBrandToFirestore(nextBrands.find((b) => b.id === id) || updated);
     } catch (e) {
       console.warn(e);
+    }
+  };
+
+  const reorderBrands = async (id: string, direction: 'up' | 'down') => {
+    const sorted = [...brands].sort((a, b) => (a.order || 0) - (b.order || 0));
+    const currentIndex = sorted.findIndex((b) => b.id === id);
+    if (currentIndex === -1) return;
+
+    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    if (targetIndex < 0 || targetIndex >= sorted.length) return;
+
+    const reordered = [...sorted];
+    const [moved] = reordered.splice(currentIndex, 1);
+    reordered.splice(targetIndex, 0, moved);
+
+    const normalized = reordered.map((b, idx) => ({
+      ...b,
+      featured: Boolean(b.featured),
+      active: b.active !== false,
+      order: idx + 1,
+    }));
+
+    setBrands(normalized);
+    try {
+      await reconcileBrandsInFirestore(normalized, pendingDuplicateBrandIdsRef.current);
+      pendingDuplicateBrandIdsRef.current = [];
+      showToast('Ordem das marcas atualizada!', 'success');
+    } catch (e) {
+      console.warn(e);
+      showToast('Ordem das marcas atualizada!', 'success');
     }
   };
 
@@ -1872,6 +2106,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         updateBrand,
         deleteBrand,
         toggleBrandActive,
+        reorderBrands,
         addMenuItem,
         updateMenuItem,
         deleteMenuItem,

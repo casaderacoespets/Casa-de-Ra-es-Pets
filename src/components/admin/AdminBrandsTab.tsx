@@ -5,17 +5,27 @@ import { PartnerBrand } from '../../types';
 import { compressImage } from '../../utils/imageCompressor';
 
 export const AdminBrandsTab: React.FC = () => {
-  const { brands, addBrand, updateBrand, deleteBrand, toggleBrandActive } = useStore();
+  const { brands, addBrand, updateBrand, deleteBrand, toggleBrandActive, reorderBrands, showToast } = useStore();
   const [isEditing, setIsEditing] = useState(false);
   const [editingBrand, setEditingBrand] = useState<Partial<PartnerBrand> | null>(null);
   const [isNew, setIsNew] = useState(false);
+
+  const sortedBrands = [...brands].sort((a, b) => (a.order || 0) - (b.order || 0));
+
+  const normalizeBrandKey = (str: string) =>
+    (str || '')
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/\s+/g, ' ');
 
   const handleStartCreate = () => {
     setEditingBrand({
       name: '',
       logoUrl: '',
       featured: true,
-      order: brands.length + 1,
+      order: sortedBrands.length + 1,
       active: true,
     });
     setIsNew(true);
@@ -30,29 +40,40 @@ export const AdminBrandsTab: React.FC = () => {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingBrand?.name) return;
+    const cleanName = (editingBrand?.name || '').trim();
+    if (!cleanName) return;
 
-    let finalLogoUrl = editingBrand.logoUrl || '';
+    const duplicate = sortedBrands.find(
+      (b) =>
+        normalizeBrandKey(b.name) === normalizeBrandKey(cleanName) &&
+        (isNew || b.id !== editingBrand?.id)
+    );
+    if (duplicate) {
+      showToast(`A marca "${duplicate.name}" já está cadastrada.`, 'warning');
+      return;
+    }
+
+    let finalLogoUrl = editingBrand?.logoUrl || '';
     if (finalLogoUrl.startsWith('data:image/') || finalLogoUrl.length > 50000) {
       finalLogoUrl = await compressImage(finalLogoUrl, { maxWidth: 500, maxHeight: 500, quality: 0.85 });
     }
 
     if (isNew) {
       addBrand({
-        name: editingBrand.name,
+        name: cleanName,
         logoUrl: finalLogoUrl,
-        featured: !!editingBrand.featured,
-        order: editingBrand.order || brands.length + 1,
-        active: editingBrand.active ?? true,
+        featured: !!editingBrand?.featured,
+        order: sortedBrands.length + 1,
+        active: editingBrand?.active ?? true,
       });
-    } else if (editingBrand.id) {
+    } else if (editingBrand?.id) {
       updateBrand({
         ...editingBrand,
         id: editingBrand.id,
-        name: editingBrand.name,
+        name: cleanName,
         logoUrl: finalLogoUrl,
         featured: !!editingBrand.featured,
-        order: editingBrand.order || 1,
+        order: Number(editingBrand.order) || 1,
         active: editingBrand.active ?? true,
       } as PartnerBrand);
     }
@@ -61,26 +82,8 @@ export const AdminBrandsTab: React.FC = () => {
     setEditingBrand(null);
   };
 
-  const sortedBrands = [...brands].sort((a, b) => (a.order || 0) - (b.order || 0));
-
   const handleMoveOrder = (brand: PartnerBrand, direction: 'up' | 'down') => {
-    const currentIndex = sortedBrands.findIndex((b) => b.id === brand.id);
-    if (currentIndex === -1) return;
-
-    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
-    if (targetIndex < 0 || targetIndex >= sortedBrands.length) return;
-
-    const neighbor = sortedBrands[targetIndex];
-    const currentOrder = brand.order || currentIndex + 1;
-    const neighborOrder = neighbor.order || targetIndex + 1;
-
-    const newCurrentOrder =
-      currentOrder === neighborOrder ? targetIndex + 1 : neighborOrder;
-    const newNeighborOrder =
-      currentOrder === neighborOrder ? currentIndex + 1 : currentOrder;
-
-    updateBrand({ ...neighbor, featured: !!neighbor.featured, order: newNeighborOrder });
-    updateBrand({ ...brand, featured: !!brand.featured, order: newCurrentOrder });
+    reorderBrands(brand.id, direction);
   };
 
   return (

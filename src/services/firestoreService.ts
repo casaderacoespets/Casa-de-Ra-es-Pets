@@ -478,6 +478,27 @@ export const deleteBrandFromFirestore = async (id: string): Promise<void> => {
   await deleteDoc(docRef);
 };
 
+export const reconcileBrandsInFirestore = async (
+  brandsToSave: PartnerBrand[],
+  idsToDelete: string[] = []
+): Promise<void> => {
+  if (!db) throw new Error('Firestore não inicializado.');
+  const batch = writeBatch(db);
+
+  for (const id of idsToDelete) {
+    if (id) {
+      batch.delete(doc(db, COLLECTIONS.BRANDS, id));
+    }
+  }
+
+  for (const brand of brandsToSave) {
+    const clean = sanitizeForFirestore(brand);
+    batch.set(doc(db, COLLECTIONS.BRANDS, clean.id), clean, { merge: true });
+  }
+
+  await batch.commit();
+};
+
 export const saveBenefitToFirestore = async (benefit: SiteBenefit): Promise<void> => {
   if (!db) throw new Error('Firestore não inicializado.');
   const clean = sanitizeForFirestore(benefit);

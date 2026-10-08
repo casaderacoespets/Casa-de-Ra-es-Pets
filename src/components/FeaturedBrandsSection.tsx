@@ -24,9 +24,21 @@ export const FeaturedBrandsSection: React.FC = () => {
   const { brands, setFilters } = useStore();
 
   const featuredBrands = useMemo(() => {
+    const seen = new Set<string>();
     return (brands || [])
       .filter((b) => b.active !== false && b.featured === true)
-      .sort((a, b) => (a.order || 0) - (b.order || 0));
+      .sort((a, b) => (a.order || 0) - (b.order || 0))
+      .filter((b) => {
+        const key = (b.name || '')
+          .trim()
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/\s+/g, ' ');
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
   }, [brands]);
 
   const handleSelectBrand = (brandName: string) => {
