@@ -111,7 +111,7 @@ export const AdminBrandsTab: React.FC = () => {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {sortedBrands.map((b, idx) => (
           <div
             key={b.id}
@@ -135,9 +135,11 @@ export const AdminBrandsTab: React.FC = () => {
               <div className="min-w-0">
                 <h4 className="font-bold text-slate-900 text-sm truncate">{b.name}</h4>
                 <div className="flex items-center gap-1.5 mt-0.5">
-                  <span className="text-[10px] text-slate-400">#{b.order || idx + 1}</span>
+                  <span className="text-[11px] font-semibold text-slate-500 whitespace-nowrap shrink-0">
+                    #{b.order || idx + 1}
+                  </span>
                   {b.featured && (
-                    <span className="inline-block text-[10px] text-amber-600 font-semibold bg-amber-50 px-1.5 py-0.5 rounded">
+                    <span className="inline-block text-[10px] text-amber-700 font-semibold bg-amber-50 border border-amber-200/60 px-1.5 py-0.5 rounded whitespace-nowrap shrink-0">
                       Destaque
                     </span>
                   )}
@@ -170,7 +172,7 @@ export const AdminBrandsTab: React.FC = () => {
               <button
                 type="button"
                 onClick={() => toggleBrandActive(b.id)}
-                className={`px-2 py-1 rounded-md text-[10px] font-bold cursor-pointer ${
+                className={`px-2 py-1 rounded-md text-[10px] font-bold whitespace-nowrap cursor-pointer ${
                   b.active !== false ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'
                 }`}
               >
@@ -181,6 +183,7 @@ export const AdminBrandsTab: React.FC = () => {
                 type="button"
                 onClick={() => handleStartEdit(b)}
                 className="p-1.5 text-slate-500 hover:text-amber-600 rounded-lg cursor-pointer"
+                title="Editar marca"
               >
                 <Edit2 className="w-4 h-4" />
               </button>
@@ -191,6 +194,7 @@ export const AdminBrandsTab: React.FC = () => {
                   if (window.confirm(`Excluir marca "${b.name}"?`)) deleteBrand(b.id);
                 }}
                 className="p-1.5 text-slate-500 hover:text-rose-600 rounded-lg cursor-pointer"
+                title="Excluir marca"
               >
                 <Trash2 className="w-4 h-4" />
               </button>
