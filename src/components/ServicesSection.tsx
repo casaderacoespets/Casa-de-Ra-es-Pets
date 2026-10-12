@@ -195,7 +195,7 @@ export const ServicesSection: React.FC = () => {
           <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-gradient-to-l from-amber-500/10 to-transparent pointer-events-none" />
 
           <div className="relative z-10 flex flex-col lg:flex-row items-center justify-between gap-6">
-            <div className="space-y-2 text-center lg:text-left max-w-2xl">
+            <div className="space-y-2 text-center lg:text-left flex-1 min-w-0 max-w-2xl">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-500/20 border border-rose-500/30 text-rose-300 text-xs font-extrabold">
                 <Activity className="w-3.5 h-3.5 text-rose-400 animate-pulse" />
                 <span>Plantão de Atendimento 24 Horas</span>
@@ -208,23 +208,23 @@ export const ServicesSection: React.FC = () => {
               </p>
             </div>
 
-            <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center lg:justify-end gap-3 w-full lg:w-auto shrink-0">
               <a
                 href={generalWhatsappHref}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-sm shadow-lg hover:shadow-emerald-600/30 transition-all cursor-pointer"
+                className="w-full sm:w-auto shrink-0 inline-flex items-center justify-center gap-2.5 px-5 sm:px-6 py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-sm shadow-lg hover:shadow-emerald-600/30 transition-all cursor-pointer whitespace-nowrap"
               >
-                <MessageCircle className="w-5 h-5 fill-white" />
-                <span>WhatsApp: {settings.primaryWhatsappDisplay || '(11) 97515-8424'}</span>
+                <MessageCircle className="w-5 h-5 fill-white shrink-0" />
+                <span className="whitespace-nowrap">WhatsApp: {settings.primaryWhatsappDisplay || '(11) 97515-8424'}</span>
               </a>
 
               <a
                 href={primaryTelHref}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-2xl bg-white/10 hover:bg-white/20 text-white border border-white/20 font-extrabold text-sm transition-all cursor-pointer"
+                className="w-full sm:w-auto shrink-0 inline-flex items-center justify-center gap-2.5 px-5 sm:px-6 py-3.5 rounded-2xl bg-white/10 hover:bg-white/20 text-white border border-white/20 font-extrabold text-sm transition-all cursor-pointer whitespace-nowrap"
               >
-                <Phone className="w-4 h-4 text-amber-400" />
-                <span>Fixo: {settings.primaryPhone || '(11) 2495-0511'}</span>
+                <Phone className="w-4 h-4 text-amber-400 shrink-0" />
+                <span className="whitespace-nowrap">Fixo: {settings.primaryPhone || '(11) 2495-0511'}</span>
               </a>
             </div>
           </div>
