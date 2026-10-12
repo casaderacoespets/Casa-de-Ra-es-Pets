@@ -812,7 +812,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           if (isLegacyStoreBenefit) {
             return {
               ...b,
-              title: 'Nossa Loja Física',
+              title: 'Loja Física',
               description: 'Av. Dona Belmira Marin, 3618 - Loja 1 - Grajaú, São Paulo - SP, 04846-000',
               iconName: 'Store',
               iconColor: 'text-blue-600 bg-blue-50',
@@ -865,7 +865,43 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     // 8. Menu Items
     const unsubMenuItems = subscribeToMenuItems((cloudMenu) => {
       if (cloudMenu && cloudMenu.length > 0) {
-        setMenuItems(cloudMenu);
+        let hasChangesToSync = false;
+        const sanitizedMenu = cloudMenu.map((m) => {
+          const lowerLabel = (m.label || '').toLowerCase();
+          const isLegacyStoresMenuItem =
+            lowerLabel.includes('3 loja') ||
+            lowerLabel.includes('lojas físicas') ||
+            lowerLabel.includes('lojas fisicas') ||
+            (m.id === 'menu-6' && (m.targetType === 'stores' || m.emoji === '📍'));
+
+          if (isLegacyStoresMenuItem) {
+            hasChangesToSync = true;
+            return {
+              ...m,
+              label: 'Loja Física',
+              emoji: m.emoji || '📍',
+              icon: m.icon || m.emoji || '📍',
+              targetType: 'stores' as const,
+              targetValue: 'stores',
+            };
+          }
+          return m;
+        });
+
+        setMenuItems(sanitizedMenu);
+
+        if (hasChangesToSync && auth?.currentUser) {
+          const itemToUpdate = sanitizedMenu.find(
+            (m) => m.id === 'menu-6' || (m.label === 'Loja Física' && m.targetType === 'stores')
+          );
+          if (itemToUpdate) {
+            saveMenuItemToFirestore(itemToUpdate).catch((err) =>
+              console.warn('[Firestore] Aviso ao sincronizar menu-6 para Loja Física:', err)
+            );
+          }
+        }
+      } else {
+        setMenuItems(INITIAL_MENU_ITEMS);
       }
     });
 

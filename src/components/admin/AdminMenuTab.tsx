@@ -85,8 +85,16 @@ export const AdminMenuTab: React.FC = () => {
     e.preventDefault();
     if (!editingItem?.label) return;
 
+    const rawLabel = editingItem.label.trim();
+    const finalLabel =
+      rawLabel.toLowerCase().includes('3 loja') ||
+      rawLabel.toLowerCase().includes('lojas físicas') ||
+      rawLabel.toLowerCase().includes('lojas fisicas')
+        ? 'Loja Física'
+        : rawLabel;
+
     const finalType = editingItem.targetType || editingItem.type || 'catalog';
-    const finalEmoji = editingItem.emoji || editingItem.icon || '🐾';
+    const finalEmoji = editingItem.emoji || editingItem.icon || (finalType === 'stores' ? '📍' : '🐾');
     const finalTargetValue = editingItem.targetValue || '';
     const finalHref =
       finalType === 'external'
@@ -95,7 +103,7 @@ export const AdminMenuTab: React.FC = () => {
 
     if (isNew) {
       addMenuItem({
-        label: editingItem.label,
+        label: finalLabel,
         emoji: finalEmoji,
         icon: finalEmoji,
         targetType: finalType,
@@ -109,7 +117,7 @@ export const AdminMenuTab: React.FC = () => {
       updateMenuItem({
         ...editingItem,
         id: editingItem.id,
-        label: editingItem.label,
+        label: finalLabel,
         emoji: finalEmoji,
         icon: finalEmoji,
         targetType: finalType,
@@ -136,16 +144,20 @@ export const AdminMenuTab: React.FC = () => {
     else if (newType === 'catalog') defaultVal = 'all';
     else if (newType === 'external') defaultVal = editingItem?.href && editingItem.href !== '#' ? editingItem.href : 'https://';
 
-    setEditingItem((prev) =>
-      prev
-        ? {
-            ...prev,
-            targetType: newType,
-            type: newType,
-            targetValue: defaultVal,
-          }
-        : prev
-    );
+    setEditingItem((prev) => {
+      if (!prev) return prev;
+      const isSwitchingToStores = newType === 'stores';
+      const shouldUpdateLabel =
+        isSwitchingToStores && (!prev.label || prev.label.toLowerCase().includes('3 loja'));
+      return {
+        ...prev,
+        targetType: newType,
+        type: newType,
+        targetValue: defaultVal,
+        label: shouldUpdateLabel ? 'Loja Física' : prev.label,
+        emoji: isSwitchingToStores && (!prev.emoji || prev.emoji === '🐾') ? '📍' : prev.emoji,
+      };
+    });
   };
 
   return (

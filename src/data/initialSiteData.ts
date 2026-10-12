@@ -192,7 +192,7 @@ export const INITIAL_BENEFITS: SiteBenefit[] = [
   {
     id: 'ben-4',
     iconName: 'Store',
-    title: 'Nossa Loja Física',
+    title: 'Loja Física',
     description: 'Av. Dona Belmira Marin, 3618 - Loja 1 - Grajaú, SP, 04846-000',
     iconColor: 'text-blue-600 bg-blue-50',
     actionType: 'stores',
@@ -247,6 +247,7 @@ export const INITIAL_MENU_ITEMS: MenuItem[] = [
   { id: 'menu-outros', label: 'Pequenos Animais', targetType: 'species', targetValue: 'outros', emoji: '🐰', icon: '🐰', type: 'species', active: true, order: 5 },
   { id: 'menu-farmacia', label: 'Farmácia Pet', targetType: 'category', targetValue: 'farmacia', emoji: '💊', icon: '💊', type: 'category', active: true, order: 6 },
   { id: 'menu-ofertas', label: 'Ofertas do Dia', targetType: 'offers', targetValue: 'offers', emoji: '🔥', icon: '🔥', type: 'offers', active: true, order: 7 },
+  { id: 'menu-6', label: 'Loja Física', targetType: 'stores', targetValue: 'stores', emoji: '📍', icon: '📍', type: 'stores', active: true, order: 8 },
 ];
 
 export const INITIAL_APPEARANCE: SiteAppearance = {

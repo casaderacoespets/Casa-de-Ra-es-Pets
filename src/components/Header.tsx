@@ -162,12 +162,21 @@ export const Header: React.FC = () => {
             { id: 'outros', label: 'Pequenos Animais', targetType: 'species', targetValue: 'outros', emoji: '🐰', active: true, order: 5 },
             { id: 'farmacia', label: 'Farmácia Pet', targetType: 'category', targetValue: 'farmacia', emoji: '💊', active: true, order: 6 },
             { id: 'ofertas', label: 'Ofertas do Dia', targetType: 'offers', targetValue: 'offers', emoji: '🔥', active: true, order: 7 },
+            { id: 'loja', label: 'Loja Física', targetType: 'stores', targetValue: 'stores', emoji: '📍', active: true, order: 8 },
           ];
 
     return sourceItems.map((item) => {
       const resolvedType = item.targetType || item.type || 'catalog';
       const resolvedValue = item.targetValue || '';
       const resolvedIcon = item.emoji || item.icon || '🐾';
+      const rawLabel = item.label || '';
+      const lowerLabel = rawLabel.toLowerCase();
+      const resolvedLabel =
+        lowerLabel.includes('3 loja') ||
+        lowerLabel.includes('lojas físicas') ||
+        lowerLabel.includes('lojas fisicas')
+          ? 'Loja Física'
+          : rawLabel;
 
       const species =
         resolvedType === 'species' ? ((resolvedValue || 'caes') as PetSpecies) : undefined;
@@ -181,7 +190,7 @@ export const Header: React.FC = () => {
 
       return {
         id: item.id,
-        label: item.label,
+        label: resolvedLabel,
         icon: resolvedIcon,
         targetType: resolvedType,
         targetValue: resolvedValue,
